@@ -1,0 +1,33 @@
+# Caddyfile для app.madinah.ru на VPS
+# Ставится в /etc/caddy/Caddyfile
+# Caddy сам получит SSL-сертификат от Let's Encrypt.
+
+app.madinah.ru {
+    encode zstd gzip
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Rate limit для POST на /login — защита от брутфорса
+    # (нужен caddy-ratelimit модуль; если не установлен — убрать)
+    # rate_limit {
+    #     zone login_zone {
+    #         key {remote_host}
+    #         events 10
+    #         window 1m
+    #     }
+    #     match { method POST path /login* }
+    # }
+
+    reverse_proxy localhost:3000 {
+        health_uri /api/health
+        health_interval 30s
+        health_timeout 5s
+    }
+}

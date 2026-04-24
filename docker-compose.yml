@@ -1,0 +1,22 @@
+# Для локальной разработки. На проде будет managed Postgres и отдельный Docker образ.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: madinah
+      POSTGRES_USER: madinah
+      POSTGRES_PASSWORD: madinah
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U madinah -d madinah"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pg-data:

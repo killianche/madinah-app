@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-serif: "Georgia Serif", Georgia, Cambria, "Times New Roman", Times, serif;
+    /* ^^^ В проде можно заменить на @font-face Anthropic Serif если будет доступна. */
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-parchment text-near-black font-sans;
+    font-feature-settings: "ss01", "cv02", "cv03";
+  }
+
+  /* заголовки — serif 500 */
+  h1, h2, h3, h4 {
+    @apply font-serif font-medium text-near-black;
+    letter-spacing: -0.01em;
+  }
+
+  h1 { @apply text-3xl; }
+  h2 { @apply text-2xl; }
+  h3 { @apply text-xl; }
+
+  /* ссылки */
+  a {
+    @apply text-terracotta underline-offset-4;
+  }
+  a:hover {
+    @apply text-terracotta-hover underline;
+  }
+
+  /* фокус — тёплый terracotta */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(201, 100, 66, 0.35);
+    border-radius: 0.5rem;
+  }
+
+  /* убираем стандартные стили кнопок */
+  button {
+    cursor: pointer;
+  }
+
+  /* плавные transitions по умолчанию */
+  button, a, input, select, textarea {
+    transition: background-color 120ms ease, border-color 120ms ease,
+                box-shadow 120ms ease, transform 120ms ease;
+  }
+
+  /* скроллбар */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #dcd9cf;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c4c2b8;
+  }
+}
+
+@layer components {
+  /* Карточка в стиле Claude: ivory фон + ring shadow */
+  .card {
+    @apply bg-ivory rounded-lg shadow-lift p-6;
+  }
+
+  /* Pill — маленький бейдж */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5
+           text-xs font-medium bg-subtle text-near-black;
+  }
+
+  .pill-terracotta {
+    @apply pill bg-terracotta-soft text-terracotta-active;
+  }
+
+  .pill-charity {
+    @apply pill bg-ivory text-olive-gray shadow-ring;
+  }
+
+  /* Контейнер */
+  .container-prose {
+    @apply mx-auto max-w-3xl px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Кнопка primary */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-md px-4 py-2 text-sm font-medium
+           bg-terracotta text-ivory
+           hover:bg-terracotta-hover active:bg-terracotta-active
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Кнопка secondary */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-md px-4 py-2 text-sm font-medium
+           bg-ivory text-near-black shadow-ring
+           hover:bg-white hover:shadow-ring-strong
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Кнопка ghost (для опасных действий с уточнением) */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-md px-4 py-2 text-sm font-medium
+           text-olive-gray hover:text-near-black hover:bg-subtle/60;
+  }
+
+  /* Инпут */
+  .input {
+    @apply block w-full rounded-md bg-ivory px-3 py-2 text-sm
+           text-near-black placeholder:text-olive-gray-light
+           shadow-ring
+           focus:shadow-focus focus:outline-none;
+  }
+
+  /* Label */
+  .label {
+    @apply block text-sm font-medium text-near-black mb-1.5;
+  }
+
+  /* Вспомогательный текст */
+  .helper {
+    @apply text-xs text-olive-gray mt-1;
+  }
+}
+
+/* мобильный фикс: убираем zoom на фокусе инпута в Safari */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
