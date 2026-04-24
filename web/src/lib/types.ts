@@ -53,8 +53,10 @@ export interface Lesson {
   id: string;
   student_id: string;
   teacher_id: string;
-  lesson_date: Date;
-  lesson_time: string | null;
+  lesson_date: Date;          // фактическая дата
+  lesson_time: string | null; // фактическое время
+  scheduled_date: Date;       // плановая дата по графику; = lesson_date, если не переносили
+  scheduled_time: string | null;
   status: LessonStatus;
   duration_units: number;
   topic: string | null;
@@ -64,6 +66,37 @@ export interface Lesson {
   edited_at: Date | null;
   deleted_at: Date | null;
 }
+
+/** Регулярный слот ученика в неделю. weekday: 1=пн..7=вс (ISO). */
+export interface StudentSchedule {
+  id: string;
+  student_id: string;
+  weekday: number;
+  time_at: string;       // "18:00"
+  duration_min: number;  // минут
+  active: boolean;
+  note: string | null;
+}
+
+export const WEEKDAY_LABEL: Record<number, string> = {
+  1: "пн",
+  2: "вт",
+  3: "ср",
+  4: "чт",
+  5: "пт",
+  6: "сб",
+  7: "вс",
+};
+
+export const WEEKDAY_LABEL_LONG: Record<number, string> = {
+  1: "понедельник",
+  2: "вторник",
+  3: "среда",
+  4: "четверг",
+  5: "пятница",
+  6: "суббота",
+  7: "воскресенье",
+};
 
 export interface BalanceTopup {
   id: string;

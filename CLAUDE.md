@@ -1,0 +1,121 @@
+# CLAUDE.md
+
+Инструкции для Claude Code (и любого другого агента), который будет работать с этим репозиторием.
+
+## Что это
+
+**Madinah App** — веб-приложение для арабской онлайн-школы, замена Telegram-бота `@taubalessbot`. Журнал уроков, баланс учеников, аналитика. Домен: `app.madinah.ru`. Хостинг в РФ (152-ФЗ). ~32 учителя, ~2000 учеников, ~40 000 существующих уроков.
+
+## Стек
+
+- **Next.js 15.5** App Router, **React 19**, **TypeScript 5.7 strict**
+- **Postgres 16** (без ORM) — клиент `postgres.js`
+- **Tailwind 3.4** с кастомной палитрой Claude
+- **argon2id** (@node-rs/argon2) для паролей, **свои сессии** (не Lucia — deprecated)
+- **Zod** для валидации server actions
+- **Docker + Caddy** для прод-деплоя
+
+## Структура репо
+
+```
+/
+├── CLAUDE.md                 ← ты здесь
+├── README.md                 ← общее описание для людей
+├── docs/
+│   ├── PLAN.md              ← дорожная карта
+│   ├── FEATURES.md          ← живой список функционала (обсуждаем и правим)
+│   ├── DECISIONS.md         ← ADR: 12+ зафиксированных решений, ПОЧЕМУ так
+│   ├── TEACHERS.md          ← маппинг реальных учителей на журнал
+│   └── JOURNAL.md           ← структура CSV из старого журнала
+├── db/migrations/            ← SQL, применяются по порядку
+│   ├── 0001_init.sql        ← 6 таблиц, ENUMы, view, партиционированный audit_log
+│   ├── 0002_sessions.sql    ← user_sessions + password_reset_tokens
+│   └── 0003_schedules.sql   ← student_schedules + lessons.scheduled_date + SQL-функция teacher_day_agenda
+├── scripts/
+│   └── import_from_csv.py   ← импорт из старого журнала (dry-run валидирован)
+├── config/
+│   └── active_teachers.json ← список 32 активных учителей
+├── web/
+│   └── src/
+│       ├── app/             ← маршруты Next.js (App Router)
+│       │   ├── teacher/     ← UI учителя (сегодня, уроки, ученики)
+│       │   ├── manager/     ← UI менеджера (создать, проблемные)
+│       │   ├── admin/       ← админка
+│       │   └── api/health/  ← healthcheck
+│       ├── lib/
+│       │   ├── db.ts        ← singleton postgres.js
+│       │   ├── auth/        ← sessions + argon2 + requireRole()
+│       │   ├── repos/       ← ВСЕ SQL-запросы живут тут
+│       │   └── types.ts     ← доменные типы
+│       └── components/ui/   ← Button, Card, Input, Badge
+└── deploy/
+    ├── Caddyfile            ← reverse proxy для app.madinah.ru + SSL
+    └── README.md            ← playbook развёртывания
+```
+
+## Принципы
+
+1. **Функционал учителя — максимально простой и быстрый.** Учитель ведёт 10+ учеников, каждый клик = время. Не добавляй формы, когда можно одной кнопкой. Не делай модалок, если можно inline. Мобильный в первую очередь.
+2. **Никакого ORM.** Только SQL в `src/lib/repos/*`. Если нужен новый запрос — добавляй туда, не разбрасывай по страницам.
+3. **Все мутации — через server actions** (`"use server"`). Валидация Zod на входе. На выходе `{ ok: true, ... } | { ok: false, error }`.
+4. **Auth везде.** Каждая страница начинается с `await requireRole(...)`. Не забывай.
+5. **Мультитенантность через `teacher_id`.** Учитель видит ТОЛЬКО своих учеников. Проверка в action: «этот student_id действительно принадлежит этому teacher_id?» Один раз пропустишь — получишь утечку.
+6. **Баланс пересчитывается в приложении в транзакции, НЕ триггером.** Причина: проще отлаживать, нет race conditions. Сверка — по `view v_student_full.balance_calculated`.
+7. **audit_log партиционирован по месяцам.** При добавлении нового месяца — добавляй партицию в миграции. Сейчас заведены 2026-04 и 2026-05.
+8. **152-ФЗ:** БД — только в РФ. TimeWeb Cloud (Москва). Никаких Neon/Supabase/Vercel-Postgres на территории США.
+
+## Правила стиля кода
+
+- Все UI-тексты **на русском**. Комментарии в коде — на русском.
+- Имена БД (таблицы, колонки) — **snake_case** на английском (`student_schedules`, `scheduled_date`).
+- React-компоненты — PascalCase, файлы kebab-case (`today-agenda.tsx`).
+- Импорты через `@/…` (настроено в `tsconfig.json`).
+- Никаких `any`. Типизируй через `sql<RowShape[]>\`…\``.
+- Пользовательский ввод — всегда через Zod. `parsed.success === false → { ok: false, error }`.
+- Клиентские компоненты — только если есть `useState` / `useTransition` / обработчики. Всё остальное — server components.
+- **Никаких эмодзи в коде/UI**, если пользователь явно не попросил.
+
+## Основные команды
+
+```bash
+# локально (из /web)
+npm run dev              # dev-server (next dev)
+npm run build            # продакшн-сборка (тест)
+npx tsc --noEmit         # проверить типы
+
+# БД локально (нет сейчас, при поднятии)
+psql $DATABASE_URL -f db/migrations/0001_init.sql
+psql $DATABASE_URL -f db/migrations/0002_sessions.sql
+psql $DATABASE_URL -f db/migrations/0003_schedules.sql
+
+# импорт
+python scripts/import_from_csv.py --dsn "$DATABASE_URL" --csv data/journal.csv
+python scripts/import_from_csv.py --dsn "$DATABASE_URL" --csv data/journal.csv --dry-run
+
+# prod
+cd deploy && docker compose up -d --build
+```
+
+## Пользователь
+
+Пользователь — **Руслан** (email `pmrhhm@gmail.com`, telegram/github `killianche`), развивает арабскую школу.
+Предпочитает автономную работу агента: **«бери разрешение один раз, не переспрашивай»**.
+Общение — на русском.
+
+## Что НЕ делать
+
+- ❌ Не создавай `.md`-файлы «от себя» — только когда пользователь явно попросит.
+- ❌ Не используй эмодзи в UI и в коде (только в этом CLAUDE.md и docs/ — для читабельности).
+- ❌ Не добавляй npm-пакеты без необходимости. Стек уже богатый, проверь, нет ли похожего.
+- ❌ Не коммить `.env`, `node_modules`, `.next`.
+- ❌ Не переписывай auth без обсуждения. Текущая схема обдумана, см. `docs/DECISIONS.md`.
+- ❌ Не подключай ORM (Prisma/Drizzle). Решение зафиксировано: держим сырой SQL.
+
+## Куда смотреть, если…
+
+- **«Как устроена auth?»** → `src/lib/auth/session.ts` + `docs/DECISIONS.md`
+- **«Какие статусы у урока?»** → `db/migrations/0001_init.sql` (enum `lesson_status`) + `src/lib/types.ts`
+- **«Откуда берётся повестка дня?»** → SQL-функция `teacher_day_agenda` в `0003_schedules.sql`, обёртка в `src/lib/repos/schedules.ts`
+- **«Как ученик привязан к учителю?»** → `students.teacher_id` (nullable, on delete set null; ушедший учитель → ученик без учителя, менеджер переназначает)
+- **«Где список учителей?»** → `config/active_teachers.json` для импорта + `docs/TEACHERS.md` для контекста
+- **«Что обсудить с пользователем?»** → блок «💬 Обсудить / решить» в `docs/FEATURES.md`

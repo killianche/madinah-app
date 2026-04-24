@@ -9,7 +9,7 @@ export const metadata = { title: "Новый урок — Madinah" };
 export default async function NewLessonPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>;
+  searchParams: Promise<{ student?: string; date?: string }>;
 }) {
   const { user } = await requireRole("teacher");
   const teacher = await findTeacherByUserId(user.id);
@@ -37,6 +37,7 @@ export default async function NewLessonPage({
             balance: s.balance,
           }))}
           defaultStudentId={sp.student}
+          defaultDate={sp.date}
         />
       </div>
     </AppShell>

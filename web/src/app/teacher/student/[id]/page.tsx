@@ -7,7 +7,9 @@ import { findTeacherByUserId } from "@/lib/repos/teachers";
 import { findStudentById } from "@/lib/repos/students";
 import { listLessonsForStudent } from "@/lib/repos/lessons";
 import { listTopupsForStudent } from "@/lib/repos/topups";
+import { listSchedulesForStudent } from "@/lib/repos/schedules";
 import { LESSON_STATUS_LABEL, type LessonStatus } from "@/lib/types";
+import { ScheduleEditor } from "./schedule-editor";
 
 export const metadata = { title: "Ученик — Madinah" };
 
@@ -33,9 +35,10 @@ export default async function StudentCard({
   if (!student) notFound();
   if (student.teacher_id !== teacher.id) notFound();
 
-  const [lessons, topups] = await Promise.all([
+  const [lessons, topups, schedules] = await Promise.all([
     listLessonsForStudent(student.id),
     listTopupsForStudent(student.id),
+    listSchedulesForStudent(student.id),
   ]);
 
   return (
@@ -75,20 +78,30 @@ export default async function StudentCard({
       </div>
 
       <div className="mb-8">
+        <h2 className="mb-4">Расписание</h2>
+        <ScheduleEditor studentId={student.id} initial={schedules} />
+      </div>
+
+      <div className="mb-8">
         <h2 className="mb-4">История уроков</h2>
         {lessons.length === 0 ? (
           <div className="card text-olive-gray">Уроков ещё не было.</div>
         ) : (
           <ul className="space-y-2">
             {lessons.map((l) => (
-              <li key={l.id} className="bg-ivory rounded-md shadow-ring p-3 flex items-center justify-between">
+              <li key={l.id} className="bg-ivory rounded-md shadow-ring p-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium flex items-center gap-2">
                     {new Date(l.lesson_date).toLocaleDateString("ru-RU", {
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
                     })}
+                    {l.off_schedule && (
+                      <Badge variant="olive">
+                        план {new Date(l.scheduled_date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-xs text-olive-gray">{l.teacher_name}</div>
                 </div>

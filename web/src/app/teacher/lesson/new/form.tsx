@@ -12,7 +12,7 @@ import { cn } from "@/lib/cn";
 const STATUSES: LessonStatus[] = ["conducted", "penalty", "cancelled_by_teacher", "cancelled_by_student"];
 const DEDUCT_HINTS: Record<LessonStatus, string> = {
   conducted: "−1 с баланса",
-  penalty: "−1 с баланса (урок сгорел)",
+  penalty: "−1 с баланса (ученик не пришёл)",
   cancelled_by_teacher: "баланс не трогаем",
   cancelled_by_student: "баланс не трогаем",
 };
@@ -20,15 +20,21 @@ const DEDUCT_HINTS: Record<LessonStatus, string> = {
 export function NewLessonForm({
   students,
   defaultStudentId,
+  defaultDate,
 }: {
   students: { id: string; name: string; balance: number }[];
   defaultStudentId?: string;
+  defaultDate?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string>();
   const [studentId, setStudentId] = useState(defaultStudentId ?? students[0]?.id ?? "");
-  const [lessonDate, setLessonDate] = useState(new Date().toISOString().slice(0, 10));
+  const today = new Date().toISOString().slice(0, 10);
+  const [lessonDate, setLessonDate] = useState(defaultDate ?? today);  // факт
+  const [offSchedule, setOffSchedule] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState(defaultDate ?? today); // план
+  const [lessonTime, setLessonTime] = useState<string>("");
   const [status, setStatus] = useState<LessonStatus>("conducted");
   const [topic, setTopic] = useState("");
 
@@ -41,6 +47,9 @@ export function NewLessonForm({
       const result = await createLessonAction({
         student_id: studentId,
         lesson_date: lessonDate,
+        lesson_time: lessonTime || null,
+        scheduled_date: offSchedule ? scheduledDate : lessonDate,
+        scheduled_time: offSchedule ? null : (lessonTime || null),
         status,
         topic: topic.trim() || null,
       });
@@ -71,14 +80,52 @@ export function NewLessonForm({
         </select>
       </Field>
 
-      <Field label="Дата">
-        <Input
-          type="date"
-          value={lessonDate}
-          onChange={(e) => setLessonDate(e.target.value)}
-          required
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Дата проведения">
+          <Input
+            type="date"
+            value={lessonDate}
+            onChange={(e) => setLessonDate(e.target.value)}
+            required
+          />
+        </Field>
+        <Field label="Время (необязательно)">
+          <Input
+            type="time"
+            value={lessonTime}
+            onChange={(e) => setLessonTime(e.target.value)}
+          />
+        </Field>
+      </div>
+
+      <label className="flex items-start gap-3 p-3 rounded-md bg-subtle/30 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={offSchedule}
+          onChange={(e) => setOffSchedule(e.target.checked)}
+          className="mt-1 accent-terracotta"
         />
-      </Field>
+        <div className="text-sm">
+          <div className="font-medium">Перенос: урок был назначен на другой день</div>
+          <div className="text-xs text-olive-gray">
+            Например, по графику в понедельник, а провели во вторник.
+          </div>
+        </div>
+      </label>
+
+      {offSchedule && (
+        <Field
+          label="Плановая дата (по графику)"
+          helper="Эта дата попадёт в отчёт как «должен был быть», а проведение — в выбранную выше"
+        >
+          <Input
+            type="date"
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.target.value)}
+            required
+          />
+        </Field>
+      )}
 
       <fieldset className="space-y-2">
         <legend className="label">Статус урока</legend>
