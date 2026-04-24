@@ -191,7 +191,7 @@ export interface TeacherTopStudent {
   student_id: string;
   student_name: string;
   conducted: number;
-  total: number;
+  penalty: number;
   balance: number;
 }
 
@@ -216,23 +216,32 @@ export async function getTeacherDailyLessons(
   `;
 }
 
-/** Средняя нагрузка за последние N недель (conducted только). */
-export async function getTeacherWeeklyAverage(
+/**
+ * Средняя нагрузка за рабочие дни за последние N дней.
+ * Считает conducted+penalty (засчитанные уроки), делит на ЧИСЛО ДНЕЙ С УРОКАМИ,
+ * а не на N — потому что в нерабочие дни учитель не должен «штрафоваться».
+ */
+export async function getTeacherDailyAverage(
   teacherId: string,
-  weeks = 8,
+  days = 30,
 ): Promise<number> {
-  const rows = await sql<Array<{ avg_per_week: number }>>`
+  const rows = await sql<Array<{ avg_per_day: number }>>`
+    with working as (
+      select lesson_date, count(*) filter (where status in ('conducted','penalty')) as n
+      from lessons
+      where teacher_id = ${teacherId}
+        and deleted_at is null
+        and lesson_date >= current_date - ${days}::int
+      group by lesson_date
+      having count(*) filter (where status in ('conducted','penalty')) > 0
+    )
     select round(
-      count(*) filter (where status = 'conducted')::numeric
-      / ${weeks}::numeric,
+      coalesce(avg(n), 0)::numeric,
       1
-    )::float as avg_per_week
-    from lessons
-    where teacher_id = ${teacherId}
-      and deleted_at is null
-      and lesson_date >= current_date - ${weeks * 7}::int
+    )::float as avg_per_day
+    from working
   `;
-  return rows[0]?.avg_per_week ?? 0;
+  return rows[0]?.avg_per_day ?? 0;
 }
 
 /** Текущий стрик — непрерывные дни с conducted-уроками до сегодня. */
@@ -302,13 +311,13 @@ export async function getTeacherTopStudents(
     select s.id as student_id,
            s.full_name as student_name,
            count(*) filter (where l.status = 'conducted')::int as conducted,
-           count(*)::int as total,
+           count(*) filter (where l.status = 'penalty')::int as penalty,
            s.balance::int
     from lessons l
     join students s on s.id = l.student_id
     where l.teacher_id = ${teacherId} and l.deleted_at is null
     group by s.id, s.full_name, s.balance
-    order by conducted desc, total desc
+    order by count(*) filter (where l.status in ('conducted','penalty')) desc
     limit ${limit}
   `;
 }

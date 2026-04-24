@@ -104,7 +104,7 @@ export function ChangeStatusDialog({
                     <div className="text-sm font-medium">
                       {s.label}
                       {s.value === currentStatus && (
-                        <span className="text-xs text-olive-gray ml-2">· сейчас</span>
+                        <span className="text-xs text-olive-gray ml-2">· текущий</span>
                       )}
                     </div>
                     <div className="text-xs text-olive-gray">{s.helper}</div>

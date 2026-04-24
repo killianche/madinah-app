@@ -118,7 +118,7 @@ export function ChangeTeacherDialog({
                     >
                       {t.full_name}
                       {t.id === currentTeacherId && (
-                        <span className="text-xs ml-2">· сейчас</span>
+                        <span className="text-xs ml-2">· текущий</span>
                       )}
                     </button>
                   ))

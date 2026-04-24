@@ -144,7 +144,7 @@ export async function listStudentsByTeacher(teacherId: string): Promise<StudentW
     from students s
     left join teachers t on t.id = s.teacher_id
     where s.teacher_id = ${teacherId}
-      and s.status in ('active', 'paused')
+      and s.status in ('active', 'paused', 'graduated', 'dropped')
     order by s.full_name
   `;
   return rows;
@@ -352,7 +352,7 @@ export async function teacherStudentList(teacherId: string): Promise<StudentList
       where student_id = s.id and deleted_at is null
     ) agg on true
     where s.teacher_id = ${teacherId}
-      and s.status in ('active', 'paused')
+      and s.status in ('active', 'paused', 'graduated', 'dropped')
     order by s.full_name
   `;
   return rows;

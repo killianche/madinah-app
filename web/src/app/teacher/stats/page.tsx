@@ -11,7 +11,7 @@ import {
   getTeacherTopStudents,
   listLessonsForTeacher,
   getTeacherDailyLessons,
-  getTeacherWeeklyAverage,
+  getTeacherDailyAverage,
   getTeacherStreak,
   getTeacherSchoolRank,
 } from "@/lib/repos/lessons";
@@ -55,14 +55,14 @@ export default async function TeacherStats() {
   if (!teacher) notFound();
 
   const now = new Date();
-  const [monthly, totals, topStudents, recentLessons, dailyNow, weeklyAvg, streak, rank] =
+  const [monthly, totals, topStudents, recentLessons, dailyNow, dailyAvg, streak, rank] =
     await Promise.all([
       getTeacherMonthlyStats(teacher.id, 24),
       getTeacherTotalStats(teacher.id),
       getTeacherTopStudents(teacher.id, 10),
       listLessonsForTeacher(teacher.id, 10),
       getTeacherDailyLessons(teacher.id, now.getFullYear(), now.getMonth() + 1),
-      getTeacherWeeklyAverage(teacher.id, 8),
+      getTeacherDailyAverage(teacher.id, 30),
       getTeacherStreak(teacher.id),
       getTeacherSchoolRank(teacher.id),
     ]);
@@ -73,9 +73,9 @@ export default async function TeacherStats() {
   for (const row of dailyNow) {
     if (row.day >= 1 && row.day <= daysInMonth) sparkData[row.day - 1] = row.conducted;
   }
-  const percentileTop = rank && rank.totalTeachers > 1
-    ? 100 - rank.percentile  // top X% = 100 - percentile
-    : null;
+  // rank.percentile = сколько процентов учителей отстают от тебя
+  // (если 77 — значит ты обогнал 77% коллег, ты в верхних 23%).
+  const betterThan = rank && rank.totalTeachers > 1 ? rank.percentile : null;
 
   const heroMonth = monthly[0];
   const prevMonth = monthly[1];
@@ -95,10 +95,10 @@ export default async function TeacherStats() {
       <div className="grid grid-cols-3 gap-[10px] mb-[14px]">
         <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
           <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
-            В неделю
+            В день
           </div>
           <div className="font-serif text-[22px] font-medium tabular-nums leading-none">
-            {weeklyAvg}
+            {dailyAvg}
           </div>
           <div className="text-[11px] text-olive mt-1">уроков в ср.</div>
         </div>
@@ -115,14 +115,18 @@ export default async function TeacherStats() {
         </div>
         <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
           <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
-            В школе
+            Провёл больше
           </div>
-          {percentileTop !== null ? (
+          {betterThan !== null ? (
             <>
-              <div className="font-serif text-[22px] font-medium tabular-nums leading-none text-moss">
-                топ {percentileTop}%
+              <div
+                className={`font-serif text-[22px] font-medium tabular-nums leading-none ${
+                  betterThan >= 50 ? "text-moss" : "text-charcoal"
+                }`}
+              >
+                {betterThan}%
               </div>
-              <div className="text-[11px] text-olive mt-1">за 30 дн.</div>
+              <div className="text-[11px] text-olive mt-1">коллег за 30 дн.</div>
             </>
           ) : (
             <>
@@ -290,7 +294,8 @@ export default async function TeacherStats() {
                 <div className="min-w-0">
                   <div className="text-[15px] font-medium truncate">{s.student_name}</div>
                   <div className="text-[12px] text-olive tabular-nums mt-0.5">
-                    {s.conducted} проведено · {s.total} всего
+                    {s.conducted} провёл
+                    {s.penalty > 0 && ` · ${s.penalty} штраф`}
                   </div>
                 </div>
                 <div
@@ -306,39 +311,7 @@ export default async function TeacherStats() {
         </section>
       )}
 
-      {/* Последние уроки */}
-      {recentLessons.length > 0 && (
-        <section>
-          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
-            Последние уроки
-          </div>
-          <div
-            className="bg-ivory rounded-[14px] px-4"
-            style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-          >
-            {recentLessons.map((l, i) => (
-              <Link
-                key={l.id}
-                href={`/teacher/student/${l.student_id}`}
-                className={`grid grid-cols-[1fr_auto] items-center gap-3 py-[14px] no-underline text-near-black ${
-                  i > 0 ? "border-t border-border-cream" : ""
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="text-[15px] font-medium truncate">{l.student_name}</div>
-                  <div className="text-[12px] text-olive tabular-nums mt-0.5">
-                    {fmtDate(l.lesson_date)}
-                    {l.topic ? ` · ${l.topic}` : ""}
-                  </div>
-                </div>
-                {statusChip(l.status)}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {monthly.length === 0 && topStudents.length === 0 && recentLessons.length === 0 && (
+      {monthly.length === 0 && topStudents.length === 0 && (
         <div
           className="bg-ivory rounded-[14px] py-10 text-center text-olive"
           style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}

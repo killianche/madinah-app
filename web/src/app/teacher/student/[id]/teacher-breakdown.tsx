@@ -40,7 +40,7 @@ export function TeacherBreakdown({
               <span className="font-medium text-[15px]">{s.teacher_name}</span>
               {isCurrent && (
                 <Chip tone="warn" size="s">
-                  сейчас
+                  текущий
                 </Chip>
               )}
               {!isCurrent && s.teacher_status === "archived" && (

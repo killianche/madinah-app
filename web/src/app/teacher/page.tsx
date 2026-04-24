@@ -2,9 +2,11 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
-import { getTeacherDayAgenda, getTeacherWeekSchedule } from "@/lib/repos/schedules";
+import { getTeacherDayAgenda } from "@/lib/repos/schedules";
+import { listLessonsForTeacher } from "@/lib/repos/lessons";
+import { teacherStudentList } from "@/lib/repos/students";
 import { TodayAgenda } from "./today-agenda";
-import { WeekStrip } from "@/components/ui/week-strip";
+import { Chip } from "@/components/ui/chip";
 
 export const metadata = { title: "Сегодня — Madinah" };
 export const dynamic = "force-dynamic";
@@ -42,10 +44,14 @@ export default async function TeacherHome({
   const today = new Date().toISOString().slice(0, 10);
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
-  const [agenda, weekSlots] = await Promise.all([
+  const [agenda, recentLessons, myStudents] = await Promise.all([
     getTeacherDayAgenda(teacher.id, date),
-    getTeacherWeekSchedule(teacher.id),
+    listLessonsForTeacher(teacher.id, 10),
+    teacherStudentList(teacher.id),
   ]);
+  const lowBalance = myStudents
+    .filter((s) => s.status === "active" && s.balance < 3)
+    .sort((a, b) => a.balance - b.balance);
 
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, +1);
@@ -62,28 +68,39 @@ export default async function TeacherHome({
           <br />
           {firstName}
         </h1>
-        <p className="text-[14px] text-olive mt-1.5 first-letter:capitalize">{prettyDate}</p>
       </section>
 
-      {/* Date navigation */}
-      <div className="flex items-center gap-2 mb-5 -ml-2">
+      {/* Date navigation — compact bar */}
+      <div
+        className="flex items-center justify-between bg-ivory rounded-[14px] shadow-ring px-2 py-2 mb-5"
+      >
         <Link
           href={`/teacher?date=${prev}`}
-          className="w-11 h-11 flex items-center justify-center rounded-full text-charcoal no-underline hover:bg-border-cream"
+          className="w-10 h-10 flex items-center justify-center rounded-full text-charcoal no-underline hover:bg-border-cream"
           aria-label="Предыдущий день"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </Link>
-        {date !== today && (
-          <Link href="/teacher" className="text-[13px] text-terracotta no-underline">
-            сегодня
-          </Link>
-        )}
+        <div className="flex flex-col items-center">
+          <div className="text-[15px] font-medium first-letter:capitalize leading-tight">
+            {prettyDate}
+          </div>
+          {date !== today ? (
+            <Link
+              href="/teacher"
+              className="text-[11px] text-terracotta no-underline mt-0.5"
+            >
+              к сегодня
+            </Link>
+          ) : (
+            <div className="text-[11px] text-stone mt-0.5">сегодня</div>
+          )}
+        </div>
         <Link
           href={`/teacher?date=${next}`}
-          className="w-11 h-11 flex items-center justify-center rounded-full text-charcoal no-underline hover:bg-border-cream ml-auto"
+          className="w-10 h-10 flex items-center justify-center rounded-full text-charcoal no-underline hover:bg-border-cream"
           aria-label="Следующий день"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -92,20 +109,40 @@ export default async function TeacherHome({
         </Link>
       </div>
 
-      {/* Моя неделя — декоративно */}
-      {weekSlots.length > 0 && (
-        <section className="mb-5">
-          <div className="flex justify-between items-baseline mb-2">
-            <span className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone">
-              Моя неделя
-            </span>
-            <span className="text-[12px] text-stone">напоминание</span>
+      <TodayAgenda agenda={agenda} date={date} recentLessons={recentLessons} />
+
+      {/* Низкий баланс */}
+      {lowBalance.length > 0 && (
+        <section className="mb-6">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+            Низкий баланс
           </div>
-          <WeekStrip slots={weekSlots} />
+          <div
+            className="bg-ivory rounded-[14px] px-4"
+            style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
+          >
+            {lowBalance.map((s, i) => (
+              <Link
+                key={s.id}
+                href={`/teacher/student/${s.id}`}
+                className={`grid grid-cols-[1fr_auto] items-center gap-3 py-[12px] no-underline text-near-black ${
+                  i > 0 ? "border-t border-border-cream" : ""
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="text-[15px] font-medium truncate">{s.full_name}</div>
+                  {s.phone && (
+                    <div className="text-[12px] text-olive tabular-nums mt-0.5">{s.phone}</div>
+                  )}
+                </div>
+                <Chip tone={s.balance <= 0 ? "bad" : "amber"} size="s">
+                  {s.balance} уроков
+                </Chip>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
-
-      <TodayAgenda agenda={agenda} date={date} />
     </AppShell>
   );
 }

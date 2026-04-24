@@ -5,8 +5,7 @@ import Link from "next/link";
 import { Chip } from "@/components/ui/chip";
 import type { StudentListItem } from "@/lib/repos/students";
 
-type Filter = "all" | "active" | "low" | "paused";
-type Sort = "name" | "last" | "balance";
+type Filter = "all" | "active" | "low" | "paused" | "graduated" | "dropped";
 
 function fmtDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -26,30 +25,26 @@ export function StudentsList({ students }: { students: StudentListItem[] }) {
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
-  const [sort, setSort] = useState<Sort>("name");
 
   const activeCount = students.filter((s) => s.status === "active").length;
-  const lowCount = students.filter((s) => s.balance <= 0).length;
+  const lowCount = students.filter((s) => s.status === "active" && s.balance <= 0).length;
   const pausedCount = students.filter((s) => s.status === "paused").length;
+  const graduatedCount = students.filter((s) => s.status === "graduated").length;
+  const droppedCount = students.filter((s) => s.status === "dropped").length;
 
   const filtered = useMemo(() => {
     let list = students;
+    // По умолчанию (all) — только active + paused. Для отдельных — по статусу.
+    if (filter === "all") list = list.filter((s) => s.status === "active" || s.status === "paused");
     if (filter === "active") list = list.filter((s) => s.status === "active");
-    if (filter === "low") list = list.filter((s) => s.balance <= 0);
+    if (filter === "low") list = list.filter((s) => s.status === "active" && s.balance <= 0);
     if (filter === "paused") list = list.filter((s) => s.status === "paused");
+    if (filter === "graduated") list = list.filter((s) => s.status === "graduated");
+    if (filter === "dropped") list = list.filter((s) => s.status === "dropped");
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((s) => s.full_name.toLowerCase().includes(q));
-    const sorted = [...list];
-    if (sort === "name") sorted.sort((a, b) => a.full_name.localeCompare(b.full_name));
-    if (sort === "last")
-      sorted.sort((a, b) => {
-        const da = a.last_lesson_date ? new Date(a.last_lesson_date).getTime() : 0;
-        const db = b.last_lesson_date ? new Date(b.last_lesson_date).getTime() : 0;
-        return db - da;
-      });
-    if (sort === "balance") sorted.sort((a, b) => a.balance - b.balance);
-    return sorted;
-  }, [students, search, filter, sort]);
+    return [...list].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [students, search, filter]);
 
   return (
     <div>
@@ -87,29 +82,51 @@ export function StudentsList({ students }: { students: StudentListItem[] }) {
       </div>
 
       {/* Filter pills */}
-      <div className="flex gap-[6px] overflow-x-auto pb-1 mb-2">
-        <FilterPill active={filter === "all"} count={students.length} onClick={() => setFilter("all")}>
+      <div className="flex gap-[6px] overflow-x-auto pb-1 mb-3">
+        <FilterPill
+          active={filter === "all"}
+          count={activeCount + pausedCount}
+          onClick={() => setFilter("all")}
+        >
           Все
         </FilterPill>
-        <FilterPill active={filter === "active"} count={activeCount} onClick={() => setFilter("active")}>
+        <FilterPill
+          active={filter === "active"}
+          count={activeCount}
+          onClick={() => setFilter("active")}
+        >
           Активные
         </FilterPill>
         <FilterPill active={filter === "low"} count={lowCount} onClick={() => setFilter("low")}>
           Низкий баланс
         </FilterPill>
         {pausedCount > 0 && (
-          <FilterPill active={filter === "paused"} count={pausedCount} onClick={() => setFilter("paused")}>
+          <FilterPill
+            active={filter === "paused"}
+            count={pausedCount}
+            onClick={() => setFilter("paused")}
+          >
             В отпуске
           </FilterPill>
         )}
-      </div>
-
-      {/* Sort */}
-      <div className="flex gap-[6px] mb-3 text-[12px]">
-        <span className="text-stone self-center">Сортировка:</span>
-        <SortChip active={sort === "name"} onClick={() => setSort("name")}>по алфавиту</SortChip>
-        <SortChip active={sort === "last"} onClick={() => setSort("last")}>по последнему уроку</SortChip>
-        <SortChip active={sort === "balance"} onClick={() => setSort("balance")}>по балансу</SortChip>
+        {graduatedCount > 0 && (
+          <FilterPill
+            active={filter === "graduated"}
+            count={graduatedCount}
+            onClick={() => setFilter("graduated")}
+          >
+            Выпускники
+          </FilterPill>
+        )}
+        {droppedCount > 0 && (
+          <FilterPill
+            active={filter === "dropped"}
+            count={droppedCount}
+            onClick={() => setFilter("dropped")}
+          >
+            Бросили
+          </FilterPill>
+        )}
       </div>
 
       {/* List */}
@@ -202,24 +219,3 @@ function FilterPill({
   );
 }
 
-function SortChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-[10px] py-[4px] rounded-full text-[12px] font-medium whitespace-nowrap ${
-        active ? "bg-warm-sand text-near-black" : "text-stone hover:text-charcoal"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

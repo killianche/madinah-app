@@ -1,20 +1,18 @@
-"use client";
-
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AgendaItem } from "@/lib/repos/schedules";
+import type { LessonListItem } from "@/lib/repos/lessons";
 import type { LessonStatus } from "@/lib/types";
 import { LESSON_STATUS_LABEL } from "@/lib/types";
 import { Chip } from "@/components/ui/chip";
-import { cn } from "@/lib/cn";
-import { quickLogLessonAction } from "./lesson/new/actions";
+
+function fmtShortDate(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
+}
 
 /**
- * Повестка дня учителя.
- * Сверху — прогресс «провёл N из M» + бар.
- * Слоты на сегодня с 3 кнопками отметки и относительным временем.
- * Ниже — секция «Записано» с уже отмеченными уроками.
+ * Повестка дня учителя — БЕЗ кнопок.
+ * Слоты — только напоминание. Записать урок можно через FAB + снизу.
  */
 function relativeTime(slotTime: string, forDate: string): string | null {
   const today = new Date().toISOString().slice(0, 10);
@@ -42,31 +40,73 @@ function relativeTime(slotTime: string, forDate: string): string | null {
   return null;
 }
 
-export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: string }) {
+function statusChip(status: LessonStatus) {
+  if (status === "conducted") return <Chip tone="good" size="s">проведён</Chip>;
+  if (status === "penalty") return <Chip tone="bad" size="s">штраф</Chip>;
+  return <Chip tone="amber" size="s">{LESSON_STATUS_LABEL[status]}</Chip>;
+}
+
+export function TodayAgenda({
+  agenda,
+  date,
+  recentLessons = [],
+}: {
+  agenda: AgendaItem[];
+  date: string;
+  recentLessons?: LessonListItem[];
+}) {
   const scheduled = agenda.filter((a) => a.kind === "scheduled");
   const done = agenda.filter((a) => a.kind === "lesson");
-  const heldCount = done.filter((a) => a.lesson_status === "conducted").length;
-  const planned = scheduled.length + done.length;
+  const conducted = done.filter((a) => a.lesson_status === "conducted").length;
+  const penalty = done.filter((a) => a.lesson_status === "penalty").length;
+  const cancelled = done.length - conducted - penalty;
+  const counted = conducted + penalty; // засчитано с баланса
+  const total = done.length;
+  const max = Math.max(total, scheduled.length, 1);
 
   return (
     <section className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone">
-          Сегодня
-        </div>
-        {planned > 0 && (
-          <span className="text-[13px] font-medium text-charcoal tabular-nums">
-            провёл {heldCount} из {planned}
-          </span>
-        )}
-      </div>
+      {/* Счётчик проведённых за день */}
+      {(total > 0 || scheduled.length > 0) && (
+        <div
+          className="bg-ivory rounded-[16px] p-4 mb-4"
+          style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
+        >
+          <div className="flex items-baseline justify-between mb-3">
+            <div>
+              <div className="font-serif text-[36px] font-medium tabular-nums leading-none tracking-[-0.4px]">
+                {counted}
+              </div>
+              <div className="text-[12px] text-olive mt-1">засчитано сегодня</div>
+            </div>
+            <div className="flex flex-wrap gap-[6px] justify-end">
+              {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
+              {penalty > 0 && <Chip tone="bad" size="s">{penalty} штраф</Chip>}
+              {cancelled > 0 && <Chip tone="amber" size="s">{cancelled} отм.</Chip>}
+            </div>
+          </div>
 
-      {planned > 0 && (
-        <div className="h-1 rounded-full bg-warm-sand overflow-hidden mb-[14px]">
-          <div
-            className="h-full bg-terracotta transition-[width]"
-            style={{ width: `${(heldCount / planned) * 100}%` }}
-          />
+          {/* Мини-бар: conducted + penalty + cancelled + остаток из расписания */}
+          <div className="flex gap-[2px] h-2">
+            {Array.from({ length: max }).map((_, i) => {
+              let color = "#e8e6dc"; // пусто (предстоит)
+              if (i < conducted) color = "#3f6b3d"; // moss
+              else if (i < conducted + penalty) color = "#b53333"; // crimson
+              else if (i < conducted + penalty + cancelled) color = "#d4911d"; // amber
+              return (
+                <div
+                  key={i}
+                  className="flex-1 rounded-[1px]"
+                  style={{ backgroundColor: color }}
+                />
+              );
+            })}
+          </div>
+          {scheduled.length > 0 && (
+            <div className="text-[12px] text-olive mt-2 tabular-nums">
+              осталось по плану {scheduled.length}
+            </div>
+          )}
         </div>
       )}
 
@@ -82,145 +122,82 @@ export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: stri
         </div>
       )}
 
-      {/* Слоты с кнопками */}
+      {/* Слоты — просто напоминание, без кнопок */}
       {scheduled.length > 0 && (
-        <div className="flex flex-col gap-2 mb-3">
-          {scheduled.map((a) => (
-            <ScheduledCard key={`${a.student_id}-${a.slot_time}`} a={a} date={date} />
-          ))}
-        </div>
+        <section className="mb-4">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+            По расписанию
+          </div>
+          <div className="flex flex-col gap-[8px]">
+            {scheduled.map((a) => {
+              const isLow = a.student_balance <= 0;
+              const relTime = a.slot_time ? relativeTime(a.slot_time, date) : null;
+              return (
+                <Link
+                  key={`${a.student_id}-${a.slot_time}`}
+                  href={`/teacher/student/${a.student_id}`}
+                  className="bg-ivory rounded-[14px] shadow-ring px-4 py-3 flex items-center gap-[14px] no-underline text-near-black"
+                >
+                  <div className="font-serif text-[18px] font-medium tabular-nums min-w-[52px] tracking-[-0.2px]">
+                    {a.slot_time ?? "—"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[15px] font-medium truncate">{a.student_name}</span>
+                      {isLow && <Chip tone="bad" size="s">низкий баланс</Chip>}
+                      {relTime && (
+                        <span
+                          className={
+                            relTime === "идёт сейчас"
+                              ? "text-[12px] text-terracotta font-medium"
+                              : "text-[12px] text-olive font-medium"
+                          }
+                        >
+                          {relTime}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      {/* Уже записанные */}
-      {done.length > 0 && (
-        <>
-          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mt-4 mb-2 px-1">
-            Записано
+      {/* Последние уроки */}
+      {recentLessons.length > 0 && (
+        <section>
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+            Последние уроки
           </div>
-          <div className="flex flex-col gap-[6px]">
-            {done.map((a) => (
-              <div
-                key={a.lesson_id}
-                className="bg-ivory rounded-[12px] shadow-ring grid grid-cols-[52px_1fr_auto] items-center gap-[14px] px-[14px] py-[10px]"
+          <div
+            className="bg-ivory rounded-[14px] px-4"
+            style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
+          >
+            {recentLessons.map((l, i) => (
+              <Link
+                key={l.id}
+                href={`/teacher/student/${l.student_id}`}
+                className={`grid grid-cols-[1fr_auto] items-center gap-3 py-[12px] no-underline text-near-black ${
+                  i > 0 ? "border-t border-border-cream" : ""
+                }`}
               >
-                <div className="font-serif text-[17px] font-medium tabular-nums">
-                  {a.slot_time ?? "—"}
+                <div className="min-w-0">
+                  <div className="text-[15px] font-medium truncate">
+                    {l.student_name}
+                  </div>
+                  <div className="text-[12px] text-olive tabular-nums mt-0.5">
+                    {fmtShortDate(l.lesson_date)}
+                    {l.topic ? ` · ${l.topic}` : ""}
+                  </div>
                 </div>
-                <div className="text-[15px] font-medium truncate">
-                  {a.student_name}
-                </div>
-                {statusChip(a.lesson_status!)}
-              </div>
+                {statusChip(l.status)}
+              </Link>
             ))}
           </div>
-        </>
+        </section>
       )}
     </section>
-  );
-}
-
-function statusChip(status: LessonStatus) {
-  if (status === "conducted") return <Chip tone="good" size="s">проведён</Chip>;
-  if (status === "penalty") return <Chip tone="bad" size="s">штраф</Chip>;
-  return <Chip tone="warn" size="s">{LESSON_STATUS_LABEL[status]}</Chip>;
-}
-
-function ScheduledCard({ a, date }: { a: AgendaItem; date: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string>();
-  const [saved, setSaved] = useState<LessonStatus | null>(null);
-
-  function quick(status: LessonStatus) {
-    setError(undefined);
-    startTransition(async () => {
-      const res = await quickLogLessonAction({
-        student_id: a.student_id,
-        lesson_date: date,
-        status,
-      });
-      if (res.ok) {
-        setSaved(status);
-        router.refresh();
-      } else {
-        setError(res.error);
-      }
-    });
-  }
-
-  const isLow = a.student_balance <= 0;
-  const relTime = a.slot_time ? relativeTime(a.slot_time, date) : null;
-
-  return (
-    <div
-      className={cn(
-        "bg-ivory rounded-[14px] shadow-ring p-[14px] transition-opacity",
-        saved && "opacity-60",
-      )}
-    >
-      <div className="flex items-center gap-[14px]">
-        <div className="font-serif text-[20px] font-medium tabular-nums min-w-[52px] tracking-[-0.2px]">
-          {a.slot_time ?? "—"}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href={`/teacher/student/${a.student_id}`}
-              className="text-[15px] font-medium text-near-black no-underline hover:text-terracotta truncate"
-            >
-              {a.student_name}
-            </Link>
-            {isLow && (
-              <Chip tone="bad" size="s">
-                низкий баланс
-              </Chip>
-            )}
-            {relTime && (
-              <span
-                className={cn(
-                  "text-[12px] font-medium",
-                  relTime === "идёт сейчас" ? "text-terracotta" : "text-olive",
-                )}
-              >
-                {relTime}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {!saved && (
-        <div className="flex gap-[6px] mt-[10px]">
-          {[
-            { id: "conducted", tone: "moss", label: "Провёл" },
-            { id: "cancelled_by_student", tone: "terracotta", label: "Отменён" },
-            { id: "penalty", tone: "crimson", label: "Штраф" },
-          ].map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              disabled={pending}
-              onClick={() => quick(b.id as LessonStatus)}
-              className={cn(
-                "flex-1 bg-parchment rounded-[10px] py-2 text-[13px] font-medium disabled:opacity-50",
-                b.tone === "moss" && "text-moss",
-                b.tone === "terracotta" && "text-terracotta",
-                b.tone === "crimson" && "text-crimson",
-              )}
-              style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {saved && (
-        <p className="text-[12px] text-olive mt-2 px-1">
-          Сохранено: {LESSON_STATUS_LABEL[saved]}
-        </p>
-      )}
-      {error && <p className="text-[12px] text-crimson mt-2 px-1">{error}</p>}
-    </div>
   );
 }
