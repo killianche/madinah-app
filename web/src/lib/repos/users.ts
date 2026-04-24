@@ -2,6 +2,25 @@ import { sql } from "@/lib/db";
 import type { User, UserRole } from "@/lib/types";
 import { hashPassword } from "@/lib/auth/password";
 
+/** Деактивировать/активировать пользователя. */
+export async function setUserActive(
+  userId: string,
+  isActive: boolean,
+  actorId: string,
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`update users set is_active = ${isActive}, updated_at = now() where id = ${userId}`;
+    if (!isActive) {
+      await tx`delete from user_sessions where user_id = ${userId}`;
+    }
+    await tx`
+      insert into audit_log (actor_id, action, entity_type, entity_id, diff)
+      values (${actorId}, ${isActive ? "user.activate" : "user.deactivate"},
+              'user', ${userId}, ${sql.json({ is_active: isActive })})
+    `;
+  });
+}
+
 export interface CreateUserInput {
   role: UserRole;
   full_name: string;

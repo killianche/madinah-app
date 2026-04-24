@@ -51,7 +51,7 @@ export function NewLessonForm({
   const [studentId, setStudentId] = useState(defaultStudentId ?? "");
   const [studentPickerOpen, setStudentPickerOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("sv-SE");
   const [lessonDate, setLessonDate] = useState(defaultDate ?? today);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [status, setStatus] = useState<LessonStatus>("conducted");

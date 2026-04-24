@@ -162,6 +162,16 @@ export async function listAllActiveStudents(): Promise<StudentWithTeacher[]> {
   return rows;
 }
 
+/** Все ученики школы (включая graduated/dropped/archived) — для manager. */
+export async function listAllStudentsFull(): Promise<StudentWithTeacher[]> {
+  return sql<StudentWithTeacher[]>`
+    select s.*, t.full_name as teacher_name
+    from students s
+    left join teachers t on t.id = s.teacher_id
+    order by s.full_name
+  `;
+}
+
 export async function findStudentById(id: string): Promise<StudentWithTeacher | null> {
   const rows = await sql<StudentWithTeacher[]>`
     select s.*, t.full_name as teacher_name
@@ -264,6 +274,60 @@ export async function changeStudentStatus(input: {
                 old_status: oldStatus,
                 new_status: input.new_status,
                 reason: input.reason,
+              })})
+    `;
+  });
+}
+
+/** Обновление профиля ученика (ФИО, телефон, ТГ, charity). */
+export async function updateStudentProfile(input: {
+  student_id: string;
+  full_name: string;
+  phone: string | null;
+  telegram_username: string | null;
+  is_charity: boolean;
+  charity_note: string | null;
+  actor_id: string;
+}): Promise<void> {
+  await sql.begin(async (tx) => {
+    const prev = await tx<Array<{
+      full_name: string;
+      phone: string | null;
+      telegram_username: string | null;
+      is_charity: boolean;
+    }>>`
+      select full_name, phone, telegram_username, is_charity
+      from students where id = ${input.student_id} for update
+    `;
+    const old = prev[0];
+
+    await tx`
+      update students
+      set full_name = ${input.full_name},
+          phone = ${input.phone},
+          telegram_username = ${input.telegram_username},
+          is_charity = ${input.is_charity},
+          charity_note = ${input.charity_note},
+          charity_since = case
+            when ${input.is_charity} and charity_since is null then current_date
+            when not ${input.is_charity} then null
+            else charity_since
+          end,
+          updated_at = now()
+      where id = ${input.student_id}
+    `;
+
+    await tx`
+      insert into audit_log (actor_id, action, entity_type, entity_id, diff)
+      values (${input.actor_id}, 'student.update_profile', 'student', ${input.student_id},
+              ${sql.json({
+                old,
+                new: {
+                  full_name: input.full_name,
+                  phone: input.phone,
+                  telegram_username: input.telegram_username,
+                  is_charity: input.is_charity,
+                },
               })})
     `;
   });

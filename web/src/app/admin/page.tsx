@@ -2,10 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { listAllUsers } from "@/lib/repos/users";
-import { Badge } from "@/components/ui/badge";
-import { USER_ROLE_LABEL } from "@/lib/types";
+import { UserRow } from "./user-row";
 
-export const metadata = { title: "Администрирование — Madinah" };
+export const metadata = { title: "Сотрудники — Madinah" };
+export const dynamic = "force-dynamic";
 
 export default async function AdminHome() {
   await requireRole("admin");
@@ -13,36 +13,34 @@ export default async function AdminHome() {
 
   return (
     <AppShell title="Сотрудники">
-      <div className="flex justify-between items-center mb-6">
-        <p className="text-sm text-olive-gray">{users.length} всего</p>
-        <Link href="/admin/users/new" className="btn-primary no-underline">
-          Создать сотрудника
+      <div className="flex justify-between items-center mb-5">
+        <p className="text-[13px] text-stone">{users.length} всего</p>
+        <Link
+          href="/admin/users/new"
+          className="inline-flex items-center gap-2 bg-terracotta text-ivory font-medium rounded-[12px] px-4 py-[10px] no-underline"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Создать</span>
         </Link>
       </div>
 
       <ul className="space-y-2">
         {users.map((u) => (
-          <li
+          <UserRow
             key={u.id}
-            className="bg-ivory rounded-md shadow-ring p-4 flex items-center justify-between"
-          >
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{u.full_name}</span>
-                {!u.is_active && <Badge variant="olive">Деактивирован</Badge>}
-              </div>
-              <div className="text-sm text-olive-gray mt-0.5">
-                {USER_ROLE_LABEL[u.role]}
-                {u.phone ? ` · ${u.phone}` : ""}
-                {u.email ? ` · ${u.email}` : ""}
-              </div>
-            </div>
-            <div className="text-right text-xs text-olive-gray">
-              {u.last_login_at
-                ? `вошёл ${new Date(u.last_login_at).toLocaleDateString("ru-RU")}`
-                : "ни разу не входил"}
-            </div>
-          </li>
+            user={{
+              id: u.id,
+              full_name: u.full_name,
+              role: u.role,
+              phone: u.phone,
+              email: u.email,
+              is_active: u.is_active,
+              last_login_at: u.last_login_at,
+            }}
+          />
         ))}
       </ul>
     </AppShell>

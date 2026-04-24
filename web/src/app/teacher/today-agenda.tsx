@@ -15,7 +15,7 @@ function fmtShortDate(d: Date | string): string {
  * Слоты — только напоминание. Записать урок можно через FAB + снизу.
  */
 function relativeTime(slotTime: string, forDate: string): string | null {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("sv-SE");
   if (forDate !== today) return null;
   const parts = slotTime.split(":").map(Number);
   const h = parts[0];

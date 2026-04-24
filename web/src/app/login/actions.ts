@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { sql } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { normalizePhone } from "@/lib/auth/phone";
 
 const schema = z.object({
   identifier: z.string().trim().min(1, "Введите телефон или email"),
@@ -20,10 +21,15 @@ export async function loginAction(
   }
   const { identifier, password } = parsed.data;
 
-  // ищем по email или телефону
+  // Нормализуем: если пользователь ввёл 8XXX или 7XXX — превращаем в +7XXX
+  const normalizedPhone = normalizePhone(identifier);
+
+  // ищем по email или телефону (оригинал или нормализованный)
   const rows = await sql<Array<{ id: string; password_hash: string | null; is_active: boolean }>>`
     select id, password_hash, is_active from users
-    where (email = ${identifier.toLowerCase()} or phone = ${identifier})
+    where email = ${identifier.toLowerCase()}
+       or phone = ${identifier}
+       or phone = ${normalizedPhone}
     limit 1
   `;
   const user = rows[0];

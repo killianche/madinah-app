@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Link from "next/link";
 import { requireAuth } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Chip } from "@/components/ui/chip";
 import { WeekStrip } from "@/components/ui/week-strip";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { USER_ROLE_LABEL } from "@/lib/types";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
 import { getTeacherWeekSchedule } from "@/lib/repos/schedules";
@@ -142,6 +144,14 @@ export default async function Profile() {
           </div>
         </div>
       )}
+
+      {/* Тема */}
+      <div className="mb-[14px]">
+        <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+          Тема оформления
+        </div>
+        <ThemeToggle />
+      </div>
 
       <form action="/logout" method="post">
         <button

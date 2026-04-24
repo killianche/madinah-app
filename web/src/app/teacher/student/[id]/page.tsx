@@ -159,9 +159,16 @@ export default async function StudentCard({
               <h1 className="font-serif text-[26px] font-medium leading-tight tracking-[-0.3px]">
                 {initialName}
               </h1>
-              <Chip tone={STATUS_TONE[student.status]} size="s">
-                {STUDENT_STATUS_LABEL[student.status]}
-              </Chip>
+              {student.status === "active" &&
+              (attention?.kind === "stale" || attention?.kind === "skipping") ? (
+                <Chip tone="neutral" size="s">
+                  Серая зона
+                </Chip>
+              ) : (
+                <Chip tone={STATUS_TONE[student.status]} size="s">
+                  {STUDENT_STATUS_LABEL[student.status]}
+                </Chip>
+              )}
             </div>
             <div className="text-[13px] text-olive mt-1">
               {firstDate ? `С ${fmtDate(firstDate)} · ` : ""}
@@ -307,7 +314,7 @@ export default async function StudentCard({
       </div>
 
       {canChangeTeacher && (
-        <div className="mb-[22px]">
+        <div className="mb-[22px] flex flex-wrap gap-2">
           <ChangeTeacherDialog
             studentId={student.id}
             currentTeacherId={student.teacher_id}
@@ -316,6 +323,13 @@ export default async function StudentCard({
               full_name: t.full_name,
             }))}
           />
+          <Link
+            href={`/teacher/student/${student.id}/edit`}
+            className="inline-flex items-center gap-2 px-4 py-[10px] rounded-[12px] font-medium text-charcoal no-underline"
+            style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+          >
+            Редактировать профиль
+          </Link>
         </div>
       )}
 

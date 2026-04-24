@@ -19,6 +19,61 @@
     font-feature-settings: "ss01", "cv02", "cv03";
   }
 
+  /* ==========
+     Dark mode — минимальный оверрайд основных поверхностей.
+     Работает через html.dark (ставится скриптом из localStorage).
+     ========== */
+  html.dark {
+    color-scheme: dark;
+  }
+  html.dark body {
+    background: #141413;
+    color: #f5f4ed;
+  }
+  html.dark h1, html.dark h2, html.dark h3, html.dark h4 {
+    color: #f5f4ed;
+  }
+  html.dark .bg-parchment {
+    background-color: #141413 !important;
+  }
+  html.dark .bg-ivory {
+    background-color: #1f1f1e !important;
+  }
+  html.dark .text-near-black {
+    color: #f5f4ed !important;
+  }
+  html.dark .text-charcoal {
+    color: #d6d3c7 !important;
+  }
+  html.dark .text-olive {
+    color: #a8a69c !important;
+  }
+  html.dark .text-stone {
+    color: #87867f !important;
+  }
+  html.dark .bg-warm-sand {
+    background-color: #2a2a28 !important;
+  }
+  html.dark .shadow-ring {
+    box-shadow: inset 0 0 0 1px #2a2a28 !important;
+  }
+  html.dark [style*="inset 0 0 0 1px #f0eee6"] {
+    box-shadow: inset 0 0 0 1px #2a2a28 !important;
+  }
+  html.dark [style*="inset 0 0 0 1px #e8e6dc"] {
+    box-shadow: inset 0 0 0 1px #3a3a37 !important;
+  }
+  html.dark .border-border-cream {
+    border-color: #2a2a28 !important;
+  }
+  html.dark input, html.dark textarea, html.dark select {
+    background-color: #1f1f1e;
+    color: #f5f4ed;
+  }
+  html.dark .bg-terracotta {
+    background-color: #c96442;
+  }
+
   /* заголовки — serif 500 */
   h1, h2, h3, h4 {
     @apply font-serif font-medium text-near-black;
