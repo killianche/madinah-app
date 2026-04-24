@@ -92,7 +92,9 @@ export async function setSessionCookie(token: string, expiresAt: Date) {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Secure cookie только если APP_URL реально https — иначе cookie
+    // не долетит через http и логин разваливается.
+    secure: (process.env.APP_URL ?? "").startsWith("https://"),
     sameSite: "lax",
     path: "/",
     expires: expiresAt,
