@@ -1,0 +1,30 @@
+# Прод-компоуз для Madinah App.
+# На проде:
+#   - Postgres — managed у TimeWeb (внешний, не в этом compose)
+#   - Caddy    — systemd-сервис на хосте (SSL от Let's Encrypt, см. deploy/Caddyfile)
+#   - Web      — этот контейнер, слушает 127.0.0.1:3000, Caddy проксирует сюда.
+
+services:
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    image: madinah-web:latest
+    container_name: madinah-web
+    restart: unless-stopped
+    env_file:
+      - ../web/.env.production
+    ports:
+      # наружу не торчим, только localhost — Caddy проксирует
+      - "127.0.0.1:3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
