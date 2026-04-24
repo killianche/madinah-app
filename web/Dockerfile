@@ -3,7 +3,9 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json ./
-RUN npm install --omit=optional
+# НЕ используем --omit=optional: @node-rs/argon2 требует
+# optional platform-specific binaries (argon2.linux-x64-musl.node).
+RUN npm install
 
 FROM node:22-alpine AS builder
 WORKDIR /app
