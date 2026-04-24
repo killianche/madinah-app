@@ -13,9 +13,9 @@ import { quickLogLessonAction } from "./lesson/new/actions";
 
 /**
  * Повестка дня учителя.
- * Сверху — слоты по расписанию, которые ещё не отмечены.
- * Под каждым три кнопки: ✓ Провёл · Отменён (учеником) · Штраф (ученик не пришёл).
- * Ниже — уже записанные за день уроки (в т.ч. «вне графика»).
+ * Сверху — слоты по расписанию (напоминалки) с кнопками быстрой отметки.
+ * Ниже — уже записанные за день уроки.
+ * Расписание ни на что не влияет: урок можно добавить в любой момент.
  */
 export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: string }) {
   const scheduled = agenda.filter((a) => a.kind === "scheduled");
@@ -27,7 +27,7 @@ export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: stri
         <div className="card text-center py-10">
           <p className="text-olive-gray">На этот день уроков не запланировано.</p>
           <Link href={`/teacher/lesson/new?date=${date}`} className="text-terracotta text-sm no-underline mt-2 inline-block">
-            Добавить урок вне графика →
+            Добавить урок →
           </Link>
         </div>
       )}
@@ -35,7 +35,7 @@ export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: stri
       {scheduled.length > 0 && (
         <section>
           <h2 className="text-sm uppercase tracking-wider text-olive-gray mb-2">
-            По графику ({scheduled.length})
+            Напоминалки по расписанию ({scheduled.length})
           </h2>
           <ul className="space-y-2">
             {scheduled.map((a) => (
@@ -55,10 +55,7 @@ export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: stri
               <li key={a.lesson_id} className="card-compact">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{a.student_name}</span>
-                      {a.off_schedule && <Badge variant="olive">Вне графика</Badge>}
-                    </div>
+                    <span className="text-sm font-medium truncate">{a.student_name}</span>
                     <p className="text-xs text-olive-gray mt-0.5">
                       {a.slot_time ?? "—"} · {LESSON_STATUS_LABEL[a.lesson_status!]}
                     </p>
@@ -87,9 +84,7 @@ function ScheduledRow({ a, date }: { a: AgendaItem; date: string }) {
     startTransition(async () => {
       const res = await quickLogLessonAction({
         student_id: a.student_id,
-        lesson_date: date,          // фактически = плановая (по графику)
-        scheduled_date: date,
-        scheduled_time: a.slot_time,
+        lesson_date: date,
         lesson_time: a.slot_time,
         status,
       });

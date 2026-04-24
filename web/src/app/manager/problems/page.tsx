@@ -18,7 +18,7 @@ interface Row {
 export const metadata = { title: "Проблемные — Madinah" };
 
 export default async function ProblemsPage() {
-  await requireRole("manager", "curator", "director");
+  await requireRole("manager", "curator", "head", "director", "admin");
 
   // Композитный score: дни-с-последнего × 0.3 + отмены × 0.5 + (баланс<5) × 10 × 0.2
   const rows = await sql<Row[]>`

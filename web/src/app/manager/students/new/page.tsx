@@ -6,7 +6,7 @@ import { NewStudentForm } from "./form";
 export const metadata = { title: "Новый ученик — Madinah" };
 
 export default async function NewStudentPage() {
-  await requireRole("manager", "curator", "director");
+  await requireRole("manager", "curator", "head", "director", "admin");
   const teachers = await findActiveTeachers();
 
   return (

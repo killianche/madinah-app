@@ -53,8 +53,6 @@ export interface AgendaItem {
   student_balance: number;
   lesson_id: string | null;
   lesson_status: LessonStatus | null;
-  scheduled_date: string;            // "YYYY-MM-DD"
-  off_schedule: boolean;
 }
 
 export async function getTeacherDayAgenda(
@@ -69,16 +67,12 @@ export async function getTeacherDayAgenda(
     student_balance: number;
     lesson_id: string | null;
     lesson_status: LessonStatus | null;
-    scheduled_date: string;
-    off_schedule: boolean;
   };
   const rows = await sql<Row[]>`
     select kind,
            to_char(slot_time, 'HH24:MI') as slot_time,
            student_id, student_name, student_balance,
-           lesson_id, lesson_status,
-           to_char(scheduled_date, 'YYYY-MM-DD') as scheduled_date,
-           off_schedule
+           lesson_id, lesson_status
     from teacher_day_agenda(${teacherId}, ${date})
     order by slot_time nulls last, student_name
   `;

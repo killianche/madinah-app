@@ -2,10 +2,36 @@
  * Доменные типы. Зеркалят БД, но не один-в-один — с учётом потребностей UI.
  */
 
-export type UserRole = "admin" | "director" | "manager" | "curator" | "teacher";
+export type UserRole =
+  | "admin"
+  | "director"
+  | "manager"
+  | "curator"
+  | "head"      // руководитель учителей (права как у куратора)
+  | "teacher";
 
 export type TeacherStatus = "active" | "archived";
-export type StudentStatus = "active" | "paused" | "archived";
+export type StudentStatus =
+  | "active"      // Обучается
+  | "paused"      // В отпуске (временно)
+  | "graduated"   // Выпускник
+  | "dropped"     // Бросил
+  | "archived";   // Архив (общий)
+
+export const STUDENT_STATUS_LABEL: Record<StudentStatus, string> = {
+  active: "Обучается",
+  paused: "В отпуске",
+  graduated: "Выпускник",
+  dropped: "Бросил",
+  archived: "Архив",
+};
+
+// Статусы, при которых ученик НЕ активен (скрываем из списков учителя и «Сегодня»).
+export const INACTIVE_STUDENT_STATUSES: StudentStatus[] = [
+  "graduated",
+  "dropped",
+  "archived",
+];
 
 export type LessonStatus =
   | "conducted"
@@ -53,10 +79,8 @@ export interface Lesson {
   id: string;
   student_id: string;
   teacher_id: string;
-  lesson_date: Date;          // фактическая дата
-  lesson_time: string | null; // фактическое время
-  scheduled_date: Date;       // плановая дата по графику; = lesson_date, если не переносили
-  scheduled_time: string | null;
+  lesson_date: Date;
+  lesson_time: string | null;
   status: LessonStatus;
   duration_units: number;
   topic: string | null;
@@ -127,5 +151,6 @@ export const USER_ROLE_LABEL: Record<UserRole, string> = {
   director: "Директор",
   manager: "Менеджер",
   curator: "Куратор",
+  head: "Руководитель учителей",
   teacher: "Учитель",
 };

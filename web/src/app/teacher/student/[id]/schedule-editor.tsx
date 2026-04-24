@@ -67,7 +67,7 @@ export function ScheduleEditor({
   return (
     <div>
       {items.length === 0 ? (
-        <p className="text-sm text-olive-gray mb-3">Расписание не задано — уроки можно отмечать вручную через «Вне графика».</p>
+        <p className="text-sm text-olive-gray mb-3">Расписание — просто напоминалка для учителя, когда примерно проводить уроки. Ни на что не влияет.</p>
       ) : (
         <ul className="space-y-2 mb-3">
           {items.map((it) => (

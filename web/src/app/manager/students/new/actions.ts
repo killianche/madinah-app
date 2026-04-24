@@ -19,7 +19,7 @@ export async function createStudentAction(
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Некорректные данные" };
 
-  const { user } = await requireRole("manager", "curator", "director", "admin");
+  const { user } = await requireRole("manager", "curator", "head", "director", "admin");
 
   try {
     const id = await sql.begin(async (tx) => {

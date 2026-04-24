@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export const metadata = { title: "Менеджер — Madinah" };
 
 export default async function ManagerHome() {
-  await requireRole("manager", "curator", "director");
+  await requireRole("manager", "curator", "head", "director", "admin");
   const students = await listAllActiveStudents();
 
   return (
@@ -18,6 +18,9 @@ export default async function ManagerHome() {
         </Link>
         <Link href="/manager/problems" className="btn-secondary no-underline">
           Проблемные
+        </Link>
+        <Link href="/manager/attention" className="btn-secondary no-underline">
+          Требует внимания
         </Link>
       </div>
 

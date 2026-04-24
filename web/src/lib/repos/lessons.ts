@@ -6,34 +6,26 @@ export const LESSON_DEDUCT_STATUSES: LessonStatus[] = ["conducted", "penalty"];
 export interface CreateLessonInput {
   student_id: string;
   teacher_id: string;
-  lesson_date: string;           // фактическая дата (ISO YYYY-MM-DD)
-  lesson_time?: string | null;   // фактическое время "HH:MM"
-  scheduled_date?: string | null; // если отличается от lesson_date → перенос
-  scheduled_time?: string | null;
+  lesson_date: string;           // ISO YYYY-MM-DD
+  lesson_time?: string | null;   // "HH:MM"
   status: LessonStatus;
   topic?: string | null;
   notes?: string | null;
-  created_by: string;            // users.id
+  created_by: string;
 }
 
 /**
  * Создаёт урок и (если нужно) списывает с баланса — одной транзакцией.
- * Если scheduled_date не передан — считаем, что урок по графику (scheduled = lesson).
  */
 export async function createLesson(input: CreateLessonInput): Promise<string> {
-  const scheduledDate = input.scheduled_date ?? input.lesson_date;
-  const scheduledTime = input.scheduled_time ?? input.lesson_time ?? null;
-  const offSchedule = scheduledDate !== input.lesson_date;
-
   return sql.begin(async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
       insert into lessons
         (student_id, teacher_id, lesson_date, lesson_time,
-         scheduled_date, scheduled_time, status, topic, notes, created_by)
+         status, topic, notes, created_by)
       values
         (${input.student_id}, ${input.teacher_id}, ${input.lesson_date},
-         ${input.lesson_time ?? null},
-         ${scheduledDate}, ${scheduledTime}, ${input.status},
+         ${input.lesson_time ?? null}, ${input.status},
          ${input.topic ?? null}, ${input.notes ?? null}, ${input.created_by})
       returning id
     `;
@@ -51,8 +43,6 @@ export async function createLesson(input: CreateLessonInput): Promise<string> {
       values (${input.created_by}, 'lesson.create', 'lesson', ${lessonId}, ${sql.json({
         status: input.status,
         lesson_date: input.lesson_date,
-        scheduled_date: scheduledDate,
-        off_schedule: offSchedule,
         student: input.student_id,
       })})
     `;
@@ -65,19 +55,16 @@ export interface LessonListItem {
   id: string;
   lesson_date: Date;
   lesson_time: string | null;
-  scheduled_date: Date;
   status: LessonStatus;
   student_id: string;
   student_name: string;
   teacher_id: string;
   teacher_name: string;
-  off_schedule: boolean;
 }
 
 export async function listLessonsForStudent(studentId: string, limit = 50): Promise<LessonListItem[]> {
   const rows = await sql<LessonListItem[]>`
-    select l.id, l.lesson_date, l.lesson_time, l.scheduled_date, l.status,
-           (l.scheduled_date <> l.lesson_date) as off_schedule,
+    select l.id, l.lesson_date, l.lesson_time, l.status,
            s.id as student_id, s.full_name as student_name,
            t.id as teacher_id, t.full_name as teacher_name
     from lessons l
@@ -91,10 +78,55 @@ export async function listLessonsForStudent(studentId: string, limit = 50): Prom
   return rows;
 }
 
+export interface TeacherMonthStat {
+  month: Date;
+  students: number;            // уникальных учеников в этом месяце
+  new_students: number;        // первый урок с этим учителем в этом месяце
+  conducted: number;
+  penalty: number;
+  cancelled_by_teacher: number;
+  cancelled_by_student: number;
+  total: number;
+}
+
+/**
+ * Аналитика учителя по месяцам — последние N месяцев с активностью.
+ * new_students: ученики, у которых первый урок С ЭТИМ УЧИТЕЛЕМ — в этом месяце.
+ */
+export async function getTeacherMonthlyStats(
+  teacherId: string,
+  limit = 6,
+): Promise<TeacherMonthStat[]> {
+  return sql<TeacherMonthStat[]>`
+    with first_lesson as (
+      select student_id, min(lesson_date) as first_date
+      from lessons
+      where teacher_id = ${teacherId} and deleted_at is null
+      group by student_id
+    )
+    select
+      date_trunc('month', l.lesson_date)::date as month,
+      count(distinct l.student_id)::int as students,
+      count(distinct l.student_id) filter (
+        where date_trunc('month', fl.first_date) = date_trunc('month', l.lesson_date)
+      )::int as new_students,
+      count(*) filter (where l.status = 'conducted')::int as conducted,
+      count(*) filter (where l.status = 'penalty')::int as penalty,
+      count(*) filter (where l.status = 'cancelled_by_teacher')::int as cancelled_by_teacher,
+      count(*) filter (where l.status = 'cancelled_by_student')::int as cancelled_by_student,
+      count(*)::int as total
+    from lessons l
+    join first_lesson fl on fl.student_id = l.student_id
+    where l.teacher_id = ${teacherId} and l.deleted_at is null
+    group by 1
+    order by 1 desc
+    limit ${limit}
+  `;
+}
+
 export async function listLessonsForTeacher(teacherId: string, limit = 100): Promise<LessonListItem[]> {
   const rows = await sql<LessonListItem[]>`
-    select l.id, l.lesson_date, l.lesson_time, l.scheduled_date, l.status,
-           (l.scheduled_date <> l.lesson_date) as off_schedule,
+    select l.id, l.lesson_date, l.lesson_time, l.status,
            s.id as student_id, s.full_name as student_name,
            t.id as teacher_id, t.full_name as teacher_name
     from lessons l

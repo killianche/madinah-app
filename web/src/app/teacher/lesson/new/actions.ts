@@ -11,10 +11,8 @@ const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
 
 const schema = z.object({
   student_id: z.string().uuid(),
-  lesson_date: isoDate,                         // фактическая дата
+  lesson_date: isoDate,
   lesson_time: hhmm.nullable().optional(),
-  scheduled_date: isoDate.nullable().optional(), // если null → равна lesson_date (по графику)
-  scheduled_time: hhmm.nullable().optional(),
   status: z.enum(["conducted", "penalty", "cancelled_by_teacher", "cancelled_by_student"]),
   topic: z.string().max(200).nullable().optional(),
 });
@@ -33,7 +31,6 @@ export async function createLessonAction(
   const teacher = await findTeacherByUserId(user.id);
   if (!teacher) return { ok: false, error: "Профиль учителя не настроен" };
 
-  // Ученик обязан быть в группе этого учителя
   const belongs = await sql<Array<{ id: string }>>`
     select id from students where id = ${parsed.data.student_id} and teacher_id = ${teacher.id}
   `;
@@ -47,8 +44,6 @@ export async function createLessonAction(
       teacher_id: teacher.id,
       lesson_date: parsed.data.lesson_date,
       lesson_time: parsed.data.lesson_time ?? null,
-      scheduled_date: parsed.data.scheduled_date ?? parsed.data.lesson_date,
-      scheduled_time: parsed.data.scheduled_time ?? parsed.data.lesson_time ?? null,
       status: parsed.data.status,
       topic: parsed.data.topic ?? null,
       created_by: user.id,
@@ -60,10 +55,7 @@ export async function createLessonAction(
   }
 }
 
-/**
- * Быстрая запись урока с экрана «Сегодня»: по клику на кнопку.
- * Отличается от createLessonAction только тем, что не требует тему и использует дефолты.
- */
+/** Быстрая запись урока с экрана «Сегодня». */
 export async function quickLogLessonAction(input: CreateLessonInput) {
   return createLessonAction(input);
 }

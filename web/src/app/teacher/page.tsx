@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
 import { teacherStudentList } from "@/lib/repos/students";
 import { getTeacherDayAgenda } from "@/lib/repos/schedules";
+import { getTeacherMonthlyStats } from "@/lib/repos/lessons";
 import { TodayAgenda } from "./today-agenda";
 import { Badge } from "@/components/ui/badge";
 import { LESSON_STATUS_LABEL } from "@/lib/types";
@@ -35,9 +36,10 @@ export default async function TeacherHome({
   const today = new Date().toISOString().slice(0, 10);
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
-  const [agenda, students] = await Promise.all([
+  const [agenda, students, monthlyStats] = await Promise.all([
     getTeacherDayAgenda(teacher.id, date),
     teacherStudentList(teacher.id),
+    getTeacherMonthlyStats(teacher.id, 6),
   ]);
 
   const prev = shiftDate(date, -1);
@@ -57,11 +59,44 @@ export default async function TeacherHome({
           <Link href={`/teacher?date=${next}`} className="btn-ghost text-sm no-underline" aria-label="Следующий день">›</Link>
         </div>
         <Link href={`/teacher/lesson/new?date=${date}`} className="btn-primary no-underline">
-          Вне графика
+          Добавить урок
         </Link>
       </div>
 
       <TodayAgenda agenda={agenda} date={date} />
+
+      {monthlyStats.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-serif mb-3">По месяцам</h2>
+          <ul className="space-y-2">
+            {monthlyStats.map((m) => (
+              <li
+                key={m.month.toString()}
+                className="bg-ivory rounded-md shadow-ring p-3"
+              >
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <span className="font-medium">{formatMonth(m.month)}</span>
+                  <span className="text-xs text-olive-gray tabular-nums">
+                    учеников {m.students}
+                    {m.new_students > 0 && ` (новых ${m.new_students})`}
+                    {" · "}уроков {m.total}
+                  </span>
+                </div>
+                <div className="text-xs text-olive-gray flex gap-x-3 flex-wrap">
+                  <span>проведено {m.conducted}</span>
+                  {m.penalty > 0 && <span>штраф {m.penalty}</span>}
+                  {m.cancelled_by_student > 0 && (
+                    <span>отм. учеником {m.cancelled_by_student}</span>
+                  )}
+                  {m.cancelled_by_teacher > 0 && (
+                    <span>отм. учителем {m.cancelled_by_teacher}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-10">
         <div className="flex items-center justify-between mb-3">
@@ -114,6 +149,15 @@ export default async function TeacherHome({
 function formatDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
   return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+const MONTHS_RU = [
+  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+];
+function formatMonth(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return `${MONTHS_RU[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 function formatDayFull(d: string): string {

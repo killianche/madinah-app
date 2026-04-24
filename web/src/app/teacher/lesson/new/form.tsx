@@ -31,9 +31,7 @@ export function NewLessonForm({
   const [error, setError] = useState<string>();
   const [studentId, setStudentId] = useState(defaultStudentId ?? students[0]?.id ?? "");
   const today = new Date().toISOString().slice(0, 10);
-  const [lessonDate, setLessonDate] = useState(defaultDate ?? today);  // факт
-  const [offSchedule, setOffSchedule] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState(defaultDate ?? today); // план
+  const [lessonDate, setLessonDate] = useState(defaultDate ?? today);
   const [lessonTime, setLessonTime] = useState<string>("");
   const [status, setStatus] = useState<LessonStatus>("conducted");
   const [topic, setTopic] = useState("");
@@ -48,8 +46,6 @@ export function NewLessonForm({
         student_id: studentId,
         lesson_date: lessonDate,
         lesson_time: lessonTime || null,
-        scheduled_date: offSchedule ? scheduledDate : lessonDate,
-        scheduled_time: offSchedule ? null : (lessonTime || null),
         status,
         topic: topic.trim() || null,
       });
@@ -97,35 +93,6 @@ export function NewLessonForm({
           />
         </Field>
       </div>
-
-      <label className="flex items-start gap-3 p-3 rounded-md bg-subtle/30 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={offSchedule}
-          onChange={(e) => setOffSchedule(e.target.checked)}
-          className="mt-1 accent-terracotta"
-        />
-        <div className="text-sm">
-          <div className="font-medium">Перенос: урок был назначен на другой день</div>
-          <div className="text-xs text-olive-gray">
-            Например, по графику в понедельник, а провели во вторник.
-          </div>
-        </div>
-      </label>
-
-      {offSchedule && (
-        <Field
-          label="Плановая дата (по графику)"
-          helper="Эта дата попадёт в отчёт как «должен был быть», а проведение — в выбранную выше"
-        >
-          <Input
-            type="date"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.target.value)}
-            required
-          />
-        </Field>
-      )}
 
       <fieldset className="space-y-2">
         <legend className="label">Статус урока</legend>

@@ -1,5 +1,97 @@
 import { sql } from "@/lib/db";
-import type { Student, LessonStatus } from "@/lib/types";
+import type { Student, LessonStatus, StudentStatus } from "@/lib/types";
+
+// ========================= ATTENTION =========================
+
+export type AttentionKind = "stale" | "skipping" | "dropped";
+
+export interface StudentAttentionRow {
+  student_id: string;
+  student_name: string;
+  phone: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  status: StudentStatus;
+  last_conducted_date: Date | null;
+  last_any_lesson_date: Date | null;
+  last_3_statuses: LessonStatus[] | null;
+  attention_kind: AttentionKind;
+}
+
+/**
+ * Ученики, требующие внимания куратора: серая зона (stale/skipping) + dropped.
+ * Сортировка: свежие события первыми (dropped → skipping → stale; внутри — позже по дате).
+ */
+export async function listStudentsNeedingAttention(): Promise<StudentAttentionRow[]> {
+  return sql<StudentAttentionRow[]>`
+    select student_id, student_name, phone,
+           teacher_id, teacher_name, status,
+           last_conducted_date, last_any_lesson_date,
+           last_3_statuses, attention_kind
+    from v_student_attention
+    where attention_kind is not null
+    order by
+      case attention_kind
+        when 'dropped' then 1
+        when 'skipping' then 2
+        when 'stale' then 3
+      end,
+      coalesce(last_any_lesson_date, last_conducted_date) desc nulls last,
+      student_name
+  `;
+}
+
+export interface StudentAttentionFlag {
+  kind: AttentionKind | null;
+  last_conducted_date: Date | null;
+}
+
+/** Флаг «требует внимания» для конкретного ученика (для бейджа на карточке). */
+export async function getStudentAttention(
+  studentId: string,
+): Promise<StudentAttentionFlag | null> {
+  const rows = await sql<StudentAttentionFlag[]>`
+    select attention_kind as kind, last_conducted_date
+    from v_student_attention
+    where student_id = ${studentId}
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+// ========================= STATUS HISTORY =========================
+
+export interface StudentStatusHistoryEntry {
+  created_at: Date;
+  actor_id: string | null;
+  actor_name: string | null;
+  old_status: StudentStatus | null;
+  new_status: StudentStatus;
+  reason: string | null;
+}
+
+/**
+ * История смен статуса ученика — из audit_log.
+ * Показывает, когда ушёл в отпуск / вернулся / бросил и т.д.
+ */
+export async function getStudentStatusHistory(
+  studentId: string,
+): Promise<StudentStatusHistoryEntry[]> {
+  return sql<StudentStatusHistoryEntry[]>`
+    select a.created_at,
+           a.actor_id,
+           u.full_name as actor_name,
+           (a.diff->>'old_status')::text::student_status as old_status,
+           (a.diff->>'new_status')::text::student_status as new_status,
+           a.diff->>'reason' as reason
+    from audit_log a
+    left join users u on u.id = a.actor_id
+    where a.action = 'student.change_status'
+      and a.entity_type = 'student'
+      and a.entity_id = ${studentId}
+    order by a.created_at desc
+  `;
+}
 
 export interface StudentWithTeacher extends Student {
   teacher_name: string | null;
@@ -11,7 +103,7 @@ export async function listStudentsByTeacher(teacherId: string): Promise<StudentW
     from students s
     left join teachers t on t.id = s.teacher_id
     where s.teacher_id = ${teacherId}
-      and s.status = 'active'
+      and s.status in ('active', 'paused')
     order by s.full_name
   `;
   return rows;
@@ -22,7 +114,7 @@ export async function listAllActiveStudents(): Promise<StudentWithTeacher[]> {
     select s.*, t.full_name as teacher_name
     from students s
     left join teachers t on t.id = s.teacher_id
-    where s.status = 'active'
+    where s.status in ('active', 'paused')
     order by s.full_name
     limit 500
   `;
@@ -94,6 +186,48 @@ export async function getStudentTeacherBreakdown(
 /**
  * Сменить учителя у ученика с записью в audit_log.
  */
+/**
+ * Сменить статус ученика (active/paused/graduated/dropped/archived).
+ * При переходе в «неактивный» (не active/paused) проставляем archived_at.
+ */
+export async function changeStudentStatus(input: {
+  student_id: string;
+  new_status: "active" | "paused" | "graduated" | "dropped" | "archived";
+  reason: string | null;
+  actor_id: string;
+}): Promise<void> {
+  await sql.begin(async (tx) => {
+    const prev = await tx<Array<{ status: string }>>`
+      select status from students where id = ${input.student_id} for update
+    `;
+    const oldStatus = prev[0]?.status ?? null;
+
+    const isArchiving = !["active", "paused"].includes(input.new_status);
+
+    await tx`
+      update students
+      set status = ${input.new_status}::student_status,
+          archived_at = case
+            when ${isArchiving} then coalesce(archived_at, current_date)
+            when ${input.new_status} = 'active' or ${input.new_status} = 'paused' then null
+            else archived_at
+          end,
+          updated_at = now()
+      where id = ${input.student_id}
+    `;
+
+    await tx`
+      insert into audit_log (actor_id, action, entity_type, entity_id, diff)
+      values (${input.actor_id}, 'student.change_status', 'student', ${input.student_id},
+              ${sql.json({
+                old_status: oldStatus,
+                new_status: input.new_status,
+                reason: input.reason,
+              })})
+    `;
+  });
+}
+
 export async function changeStudentTeacher(input: {
   student_id: string;
   new_teacher_id: string;
@@ -154,7 +288,7 @@ export async function teacherStudentList(teacherId: string): Promise<StudentList
       limit 1
     ) last_lesson on true
     where s.teacher_id = ${teacherId}
-      and s.status = 'active'
+      and s.status in ('active', 'paused')
     order by s.full_name
   `;
   return rows;
