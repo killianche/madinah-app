@@ -57,6 +57,73 @@ export async function getCalculatedBalance(studentId: string): Promise<number> {
   return rows[0]?.balance ?? 0;
 }
 
+export interface StudentTeacherStat {
+  teacher_id: string;
+  teacher_name: string;
+  teacher_status: "active" | "archived";
+  total: number;
+  conducted: number;
+  penalty: number;
+  cancelled_by_student: number;
+  cancelled_by_teacher: number;
+  first_lesson_date: Date;
+  last_lesson_date: Date;
+}
+
+/**
+ * Разбивка уроков ученика по учителям: сколько с кем, какие статусы, период.
+ * Сортировка: текущий учитель первый, остальные по last_lesson_date desc.
+ */
+export async function getStudentTeacherBreakdown(
+  studentId: string,
+  currentTeacherId: string | null,
+): Promise<StudentTeacherStat[]> {
+  const rows = await sql<StudentTeacherStat[]>`
+    select teacher_id, teacher_name, teacher_status,
+           total, conducted, penalty, cancelled_by_student, cancelled_by_teacher,
+           first_lesson_date, last_lesson_date
+    from v_student_teacher_stats
+    where student_id = ${studentId}
+    order by
+      case when teacher_id = ${currentTeacherId ?? null} then 0 else 1 end,
+      last_lesson_date desc
+  `;
+  return rows;
+}
+
+/**
+ * Сменить учителя у ученика с записью в audit_log.
+ */
+export async function changeStudentTeacher(input: {
+  student_id: string;
+  new_teacher_id: string;
+  reason: string | null;
+  actor_id: string;
+}): Promise<void> {
+  await sql.begin(async (tx) => {
+    const prev = await tx<Array<{ teacher_id: string | null }>>`
+      select teacher_id from students where id = ${input.student_id} for update
+    `;
+    const oldTeacherId = prev[0]?.teacher_id ?? null;
+
+    await tx`
+      update students
+      set teacher_id = ${input.new_teacher_id}, updated_at = now()
+      where id = ${input.student_id}
+    `;
+
+    await tx`
+      insert into audit_log (actor_id, action, entity_type, entity_id, diff)
+      values (${input.actor_id}, 'student.change_teacher', 'student', ${input.student_id},
+              ${sql.json({
+                old_teacher_id: oldTeacherId,
+                new_teacher_id: input.new_teacher_id,
+                reason: input.reason,
+              })})
+    `;
+  });
+}
+
 export interface StudentListItem {
   id: string;
   full_name: string;

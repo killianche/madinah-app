@@ -35,7 +35,7 @@ export function LoginForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Телефон или email" helper="Как выдал администратор">
+      <Field label="Телефон или email">
         <Input
           type="text"
           autoComplete="username"
