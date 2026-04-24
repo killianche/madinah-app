@@ -229,4 +229,4 @@ join students s on s.id = l.student_id
 join teachers t on t.id = l.teacher_id
 where l.deleted_at is null;
 
-comment on database current_database() is 'Madinah App — журнал уроков арабской школы';
+-- comment on database — удалено, т.к. managed Postgres не даёт owner-прав на базу.
