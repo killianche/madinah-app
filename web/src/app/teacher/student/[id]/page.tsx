@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
-import { Badge } from "@/components/ui/badge";
+import { Chip } from "@/components/ui/chip";
+import { Avatar } from "@/components/ui/avatar";
+import { WeekStrip } from "@/components/ui/week-strip";
+import { Donut } from "@/components/ui/donut";
 import {
   findTeacherByUserId,
   findActiveTeachers,
@@ -17,34 +20,25 @@ import { listLessonsForStudent } from "@/lib/repos/lessons";
 import { listTopupsForStudent } from "@/lib/repos/topups";
 import { listSchedulesForStudent } from "@/lib/repos/schedules";
 import {
-  LESSON_STATUS_LABEL,
   STUDENT_STATUS_LABEL,
-  type LessonStatus,
   type StudentStatus,
 } from "@/lib/types";
-import { ScheduleEditor } from "./schedule-editor";
 import { TeacherBreakdown } from "./teacher-breakdown";
 import { ChangeTeacherDialog } from "./change-teacher-dialog";
 import { ChangeStatusDialog } from "./change-status-dialog";
+import { LessonHistory, type LessonRow } from "./lesson-history";
 
 export const metadata = { title: "Ученик — Madinah" };
 
-const STATUS_VARIANT: Record<LessonStatus, "success" | "terracotta" | "olive"> = {
-  conducted: "success",
-  penalty: "terracotta",
-  cancelled_by_teacher: "olive",
-  cancelled_by_student: "olive",
-};
-
-const STUDENT_STATUS_VARIANT: Record<StudentStatus, "success" | "terracotta" | "olive" | "neutral"> = {
-  active: "success",
-  paused: "neutral",
-  graduated: "olive",
-  dropped: "terracotta",
-  archived: "olive",
-};
-
 const PRIVILEGED_ROLES = ["manager", "curator", "head", "admin", "director"] as const;
+
+const STATUS_TONE: Record<StudentStatus, "good" | "warn" | "bad" | "neutral"> = {
+  active: "good",
+  paused: "warn",
+  graduated: "neutral",
+  dropped: "bad",
+  archived: "neutral",
+};
 
 function fmtDate(d: Date): string {
   return new Date(d).toLocaleDateString("ru-RU", {
@@ -54,9 +48,12 @@ function fmtDate(d: Date): string {
   });
 }
 
-function daysAgo(d: Date): number {
-  const ms = Date.now() - new Date(d).getTime();
-  return Math.floor(ms / (1000 * 60 * 60 * 24));
+function daysAgoText(d: Date | null): string {
+  if (!d) return "ещё не было уроков";
+  const n = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
+  if (n === 0) return "последний урок сегодня";
+  if (n === 1) return "последний урок вчера";
+  return `последний урок ${n} дн. назад`;
 }
 
 export default async function StudentCard({
@@ -82,6 +79,7 @@ export default async function StudentCard({
   const canChangeTeacher =
     auth.user.role === "manager" ||
     auth.user.role === "curator" ||
+    auth.user.role === "head" ||
     auth.user.role === "admin";
 
   const [
@@ -93,7 +91,7 @@ export default async function StudentCard({
     statusHistory,
     attention,
   ] = await Promise.all([
-    listLessonsForStudent(student.id),
+    listLessonsForStudent(student.id, 500),
     listTopupsForStudent(student.id),
     listSchedulesForStudent(student.id),
     getStudentTeacherBreakdown(student.id, student.teacher_id),
@@ -102,237 +100,333 @@ export default async function StudentCard({
     getStudentAttention(student.id),
   ]);
 
-  // Краткая аналитика
+  // Метрики
   const total = breakdown.reduce((s, r) => s + r.total, 0);
   const conducted = breakdown.reduce((s, r) => s + r.conducted, 0);
   const penalty = breakdown.reduce((s, r) => s + r.penalty, 0);
-  const cancelled = breakdown.reduce(
+  const cancelledAll = breakdown.reduce(
     (s, r) => s + r.cancelled_by_student + r.cancelled_by_teacher,
     0,
   );
+  const attendance =
+    total > 0 ? Math.round((conducted / total) * 100) : null;
   const firstDate = breakdown.length
     ? breakdown
         .map((r) => r.first_lesson_date)
         .reduce((a, b) => (new Date(a) < new Date(b) ? a : b))
     : null;
-  const lastLesson = lessons[0];
-  const lastDaysAgo = lastLesson ? daysAgo(lastLesson.lesson_date) : null;
+  const lastLessonDate = lessons[0]?.lesson_date ?? null;
+
+  const initialName = student.full_name.replace(/[\+\d\s\-\(\)]+$/g, "").trim() || student.full_name;
+  const phone = student.phone;
+  const tg = student.telegram_username;
+
+  const balance = student.balance;
+  const balanceColor = balance <= 0 ? "text-crimson" : "text-near-black";
+
+  const lessonsForHistory: LessonRow[] = lessons.map((l) => ({
+    id: l.id,
+    lesson_date: l.lesson_date,
+    status: l.status,
+    teacher_name: l.teacher_name,
+    topic: l.topic ?? null,
+    ordinal: l.ordinal,
+  }));
 
   return (
     <AppShell
-      title={student.full_name}
+      title="Ученик"
       back={
         isPrivileged
           ? { href: "/manager", label: "Ученики" }
-          : { href: "/teacher", label: "Мои ученики" }
+          : { href: "/teacher/students", label: "Мои ученики" }
       }
     >
-      {/* Краткая аналитика */}
-      {total > 0 && (
-        <div className="mb-6 text-sm text-olive-gray flex flex-wrap gap-x-4 gap-y-1">
-          <span>
-            Всего уроков:{" "}
-            <span className="font-medium text-near-black tabular-nums">
-              {total}
-            </span>
-          </span>
-          <span>
-            Проведено:{" "}
-            <span className="font-medium text-near-black tabular-nums">
-              {conducted}
-            </span>
-          </span>
-          {penalty > 0 && (
-            <span>
-              Штраф:{" "}
-              <span className="font-medium text-near-black tabular-nums">
-                {penalty}
-              </span>
-            </span>
-          )}
-          {cancelled > 0 && (
-            <span>
-              Отменено:{" "}
-              <span className="font-medium text-near-black tabular-nums">
-                {cancelled}
-              </span>
-            </span>
-          )}
-          {firstDate && <span>С {fmtDate(firstDate)}</span>}
-          {lastDaysAgo !== null && (
-            <span>
-              Последний:{" "}
-              {lastDaysAgo === 0
-                ? "сегодня"
-                : lastDaysAgo === 1
-                  ? "вчера"
-                  : `${lastDaysAgo} дн. назад`}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <div className="card">
-          <p className="text-sm text-olive-gray">Баланс</p>
-          <p className="font-serif text-4xl mt-1 tabular-nums">
-            {Math.max(student.balance, 0)}
-          </p>
-          {student.balance < 0 && (
-            <p className="text-xs text-terracotta mt-1">
-              фактически {student.balance}
-            </p>
-          )}
-          <div className="text-xs text-olive-gray mt-3 flex items-center gap-2 flex-wrap">
-            <span>Учитель: {student.teacher_name ?? "не назначен"}</span>
-            <Badge variant={STUDENT_STATUS_VARIANT[student.status]}>
-              {STUDENT_STATUS_LABEL[student.status]}
-            </Badge>
-            {attention?.kind === "stale" && (
-              <Badge variant="warning">давно не было уроков</Badge>
-            )}
-            {attention?.kind === "skipping" && (
-              <Badge variant="warning">3 пропуска подряд</Badge>
-            )}
-          </div>
-        </div>
-        <div className="card">
-          <p className="text-sm text-olive-gray mb-2">Действия</p>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={`/teacher/lesson/new?student=${student.id}`}
-              className="btn-primary no-underline"
-            >
-              Записать урок
-            </Link>
-            <Link
-              href={`/teacher/student/${student.id}/topup`}
-              className="btn-secondary no-underline"
-            >
-              Пополнить баланс
-            </Link>
-            <ChangeStatusDialog
-              studentId={student.id}
-              currentStatus={student.status}
-            />
-            {canChangeTeacher && (
-              <ChangeTeacherDialog
-                studentId={student.id}
-                currentTeacherId={student.teacher_id}
-                teachers={activeTeachers.map((t) => ({
-                  id: t.id,
-                  full_name: t.full_name,
-                }))}
-              />
-            )}
-          </div>
-          {student.is_charity && (
-            <div className="mt-3">
-              <Badge variant="olive">Благотворительный</Badge>
+      {/* HERO */}
+      <section
+        className="bg-ivory rounded-[18px] p-5 mb-[14px]"
+        style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
+      >
+        <div className="flex items-center gap-[14px]">
+          <Avatar name={initialName} size={56} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-serif text-[26px] font-medium leading-tight tracking-[-0.3px]">
+                {initialName}
+              </h1>
+              <Chip tone={STATUS_TONE[student.status]} size="s">
+                {STUDENT_STATUS_LABEL[student.status]}
+              </Chip>
             </div>
+            <div className="text-[13px] text-olive mt-1">
+              {firstDate ? `С ${fmtDate(firstDate)} · ` : ""}
+              {daysAgoText(lastLessonDate)}
+            </div>
+          </div>
+        </div>
+
+        {/* Contacts */}
+        {(phone || tg) && (
+          <div className="flex gap-2 mt-[14px]">
+            {phone && (
+              <a
+                href={`tel:${phone.replace(/[\s\-\(\)]/g, "")}`}
+                className="flex-1 inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline tabular-nums"
+                style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                </svg>
+                <span className="truncate">{phone}</span>
+              </a>
+            )}
+            {tg && (
+              <a
+                href={`https://t.me/${tg.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline"
+                style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+                <span className="truncate">@{tg.replace(/^@/, "")}</span>
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Grey zone warning */}
+        {attention?.kind === "stale" && (
+          <div className="mt-3">
+            <Chip tone="warn" size="m">давно не было уроков</Chip>
+          </div>
+        )}
+        {attention?.kind === "skipping" && (
+          <div className="mt-3">
+            <Chip tone="warn" size="m">3 пропуска подряд</Chip>
+          </div>
+        )}
+      </section>
+
+      {/* METRICS 2x2 */}
+      <div className="grid grid-cols-2 gap-[10px] mb-[14px]">
+        {/* Посещаемость */}
+        <div className="bg-ivory rounded-[14px] shadow-ring p-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.6px] text-stone mb-2">
+            Посещаемость
+          </div>
+          {attendance !== null ? (
+            <div className="flex items-center gap-3">
+              <Donut pct={attendance / 100} size={44} />
+              <div>
+                <div className="font-serif text-[24px] font-medium leading-none tabular-nums">
+                  {attendance}%
+                </div>
+                <div className="text-[11px] text-olive mt-1 tabular-nums">
+                  {conducted} из {total}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-[13px] text-olive">—</div>
           )}
+        </div>
+
+        {/* Баланс */}
+        <div className="bg-ivory rounded-[14px] shadow-ring p-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.6px] text-stone mb-2">
+            Баланс
+          </div>
+          <div className={`font-serif text-[34px] font-medium leading-none tabular-nums ${balanceColor}`}>
+            {balance}
+          </div>
+          <div className="text-[11px] text-olive mt-1">уроков осталось</div>
+        </div>
+
+        {/* Всего уроков */}
+        <div className="bg-ivory rounded-[14px] shadow-ring p-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.6px] text-stone mb-2">
+            Всего уроков
+          </div>
+          <div className="font-serif text-[26px] font-medium leading-none tabular-nums">{total}</div>
+          <div className="flex gap-[6px] mt-2 flex-wrap">
+            {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
+            {penalty > 0 && <Chip tone="bad" size="s">{penalty} штр</Chip>}
+            {cancelledAll > 0 && <Chip tone="warn" size="s">{cancelledAll} отм</Chip>}
+          </div>
+        </div>
+
+        {/* Текущий учитель */}
+        <div className="bg-ivory rounded-[14px] shadow-ring p-4">
+          <div className="text-[11px] font-medium uppercase tracking-[0.6px] text-stone mb-2">
+            Учитель
+          </div>
+          <div className="font-serif text-[22px] font-medium leading-tight tracking-[-0.2px]">
+            {student.teacher_name ?? "—"}
+          </div>
+          <div className="text-[11px] text-olive mt-1">текущий</div>
         </div>
       </div>
 
-      <div className="mb-8">
-        <TeacherBreakdown
-          stats={breakdown}
-          currentTeacherId={student.teacher_id}
+      {/* ACTIONS grid */}
+      <div className="grid grid-cols-3 gap-2 mb-[22px]">
+        <Link
+          href={`/teacher/lesson/new?student=${student.id}`}
+          className="inline-flex flex-col items-center justify-center gap-1 bg-terracotta text-ivory rounded-[12px] py-3 no-underline font-medium text-[13px]"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Записать</span>
+        </Link>
+        <Link
+          href={`/teacher/student/${student.id}/topup`}
+          className="inline-flex flex-col items-center justify-center gap-1 bg-ivory rounded-[12px] py-3 no-underline font-medium text-[13px] text-charcoal"
+          style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 12V8H6a2 2 0 0 1 0-4h12v4" />
+            <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+          </svg>
+          <span>Пополнить</span>
+        </Link>
+        <ChangeStatusDialog
+          studentId={student.id}
+          currentStatus={student.status}
         />
       </div>
 
+      {canChangeTeacher && (
+        <div className="mb-[22px]">
+          <ChangeTeacherDialog
+            studentId={student.id}
+            currentTeacherId={student.teacher_id}
+            teachers={activeTeachers.map((t) => ({
+              id: t.id,
+              full_name: t.full_name,
+            }))}
+          />
+        </div>
+      )}
+
+      {/* SCHEDULE — decorative */}
+      {schedules.length > 0 && (
+        <section className="mb-[22px]">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+            Расписание · напоминание
+          </div>
+          <WeekStrip
+            slots={schedules
+              .filter((s) => s.active)
+              .map((s) => ({ weekday: s.weekday, time_at: s.time_at }))}
+          />
+        </section>
+      )}
+
+      {/* TEACHER HISTORY */}
+      {breakdown.length > 0 && (
+        <section className="mb-[22px]">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
+            История по учителям
+          </div>
+          <TeacherBreakdown
+            stats={breakdown}
+            currentTeacherId={student.teacher_id}
+          />
+        </section>
+      )}
+
+      {/* STATUS HISTORY */}
       {statusHistory.length > 0 && (
-        <div className="mb-8">
-          <h2 className="mb-4">История статуса</h2>
+        <section className="mb-[22px]">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
+            История статуса
+          </div>
           <ul className="space-y-2">
             {statusHistory.map((h, i) => (
               <li
                 key={i}
-                className="bg-ivory rounded-md shadow-ring p-3"
+                className="bg-ivory rounded-[14px] shadow-ring p-3"
               >
-                <div className="text-sm flex items-baseline gap-2 flex-wrap">
-                  <span className="text-olive-gray tabular-nums">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-[12px] text-olive tabular-nums">
                     {new Date(h.created_at).toLocaleDateString("ru-RU", {
                       day: "2-digit",
                       month: "2-digit",
                       year: "numeric",
                     })}
                   </span>
-                  <span>
-                    {h.old_status
-                      ? STUDENT_STATUS_LABEL[h.old_status]
-                      : "—"}{" "}
-                    →{" "}
+                  <span className="text-[14px]">
+                    {h.old_status ? STUDENT_STATUS_LABEL[h.old_status] : "—"}
+                    <span className="text-olive mx-1">→</span>
                     <span className="font-medium">
                       {STUDENT_STATUS_LABEL[h.new_status]}
                     </span>
                   </span>
                 </div>
-                <div className="text-xs text-olive-gray mt-1">
-                  {h.actor_name ?? "—"}
-                  {h.reason ? ` · ${h.reason}` : ""}
-                </div>
+                {(h.actor_name || h.reason) && (
+                  <div className="text-[12px] text-olive mt-1">
+                    {h.actor_name ?? "—"}
+                    {h.reason ? ` · ${h.reason}` : ""}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
-      <div className="mb-8">
-        <h2 className="mb-4">Расписание</h2>
-        <ScheduleEditor studentId={student.id} initial={schedules} />
-      </div>
+      {/* LESSON HISTORY with filters + #N */}
+      {lessons.length > 0 && (
+        <section className="mb-[22px]">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
+            История уроков
+          </div>
+          <LessonHistory lessons={lessonsForHistory} />
+        </section>
+      )}
 
-      <div className="mb-8">
-        <h2 className="mb-4">История уроков</h2>
-        {lessons.length === 0 ? (
-          <div className="card text-olive-gray">Уроков ещё не было.</div>
-        ) : (
-          <ul className="space-y-2">
-            {lessons.map((l) => (
-              <li
-                key={l.id}
-                className="bg-ivory rounded-md shadow-ring p-3 flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">
-                    {fmtDate(l.lesson_date)}
-                  </div>
-                  <div className="text-xs text-olive-gray">{l.teacher_name}</div>
-                </div>
-                <Badge variant={STATUS_VARIANT[l.status]}>
-                  {LESSON_STATUS_LABEL[l.status]}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
+      {/* TOPUPS */}
       {topups.length > 0 && (
-        <div>
-          <h2 className="mb-4">Пополнения</h2>
-          <ul className="space-y-2">
-            {topups.map((t) => (
-              <li
+        <section>
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
+            Пополнения
+          </div>
+          <div className="bg-ivory rounded-[14px] shadow-ring px-4">
+            {topups.map((t, i) => (
+              <div
                 key={t.id}
-                className="bg-ivory rounded-md shadow-ring p-3 flex items-center justify-between"
+                className={`flex items-center gap-3 py-3 ${
+                  i > 0 ? "border-t border-border-cream" : ""
+                }`}
               >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">
-                    {t.lessons_added > 0 ? "+" : ""}
-                    {t.lessons_added} уроков
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-medium text-[13px]"
+                  style={{
+                    background: "rgba(63,107,61,0.10)",
+                    color: "#3f6b3d",
+                  }}
+                >
+                  +{t.lessons_added}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-medium">
+                    {t.reason ?? "Пополнение"}
                   </div>
-                  <div className="text-xs text-olive-gray">
-                    {new Date(t.created_at).toLocaleDateString("ru-RU")} ·{" "}
-                    {t.added_by_name ?? "—"}
-                    {t.reason ? ` · ${t.reason}` : ""}
+                  <div className="text-[12px] text-olive tabular-nums">
+                    {t.added_by_name ?? "—"} ·{" "}
+                    {new Date(t.created_at).toLocaleDateString("ru-RU")}
                   </div>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+        </section>
       )}
     </AppShell>
   );

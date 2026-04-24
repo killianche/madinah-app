@@ -66,19 +66,26 @@ export interface LessonListItem {
   student_name: string;
   teacher_id: string;
   teacher_name: string;
+  ordinal: number;  // порядковый номер урока у этого ученика (1 = самый первый)
+  topic: string | null;
 }
 
 export async function listLessonsForStudent(studentId: string, limit = 50): Promise<LessonListItem[]> {
   const rows = await sql<LessonListItem[]>`
-    select l.id, l.lesson_date, l.lesson_time, l.status,
+    with numbered as (
+      select l.*,
+        row_number() over (order by lesson_date asc, created_at asc) as ordinal
+      from lessons l
+      where l.student_id = ${studentId} and l.deleted_at is null
+    )
+    select n.id, n.lesson_date, n.lesson_time, n.status, n.topic,
            s.id as student_id, s.full_name as student_name,
-           t.id as teacher_id, t.full_name as teacher_name
-    from lessons l
-    join students s on s.id = l.student_id
-    join teachers t on t.id = l.teacher_id
-    where l.student_id = ${studentId}
-      and l.deleted_at is null
-    order by l.lesson_date desc, l.created_at desc
+           t.id as teacher_id, t.full_name as teacher_name,
+           n.ordinal::int
+    from numbered n
+    join students s on s.id = n.student_id
+    join teachers t on t.id = n.teacher_id
+    order by n.lesson_date desc, n.created_at desc
     limit ${limit}
   `;
   return rows;
