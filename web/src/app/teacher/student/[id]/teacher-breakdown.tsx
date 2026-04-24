@@ -29,7 +29,8 @@ export function TeacherBreakdown({
     <div className="space-y-[10px]">
       {stats.map((s) => {
         const isCurrent = s.teacher_id === currentTeacherId;
-        const cancelledTotal = s.cancelled_by_student + s.cancelled_by_teacher;
+        const counted = s.conducted + s.penalty; // основные (списанные с баланса)
+        const cancelled = s.cancelled_by_student + s.cancelled_by_teacher;
         return (
           <div
             key={s.teacher_id}
@@ -48,7 +49,7 @@ export function TeacherBreakdown({
                 </Chip>
               )}
               <span className="ml-auto font-serif text-[22px] font-medium tabular-nums text-near-black">
-                {s.total}
+                {counted}
                 <span className="text-[12px] text-stone font-sans font-normal ml-1">
                   уроков
                 </span>
@@ -60,16 +61,12 @@ export function TeacherBreakdown({
             <StackedBar
               conducted={s.conducted}
               penalty={s.penalty}
-              cancelled={cancelledTotal}
+              cancelled={cancelled}
             />
-            <div className="text-[11px] text-olive mt-2 flex gap-3 flex-wrap">
-              <span className="text-moss">✓ {s.conducted}</span>
-              {s.penalty > 0 && (
-                <span className="text-crimson">штраф {s.penalty}</span>
-              )}
-              {cancelledTotal > 0 && (
-                <span className="text-terracotta">отм. {cancelledTotal}</span>
-              )}
+            <div className="flex gap-[6px] mt-2 flex-wrap">
+              {s.conducted > 0 && <Chip tone="good" size="s">{s.conducted} провёл</Chip>}
+              {s.penalty > 0 && <Chip tone="bad" size="s">{s.penalty} штраф</Chip>}
+              {cancelled > 0 && <Chip tone="amber" size="s">{cancelled} отм.</Chip>}
             </div>
           </div>
         );

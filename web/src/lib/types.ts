@@ -139,11 +139,12 @@ export const LESSON_STATUS_LABEL: Record<LessonStatus, string> = {
   cancelled_by_student: "Отменён учеником",
 };
 
-// Списывается с баланса: провёл + отмена учеником («сгорает»)
+// Списывается с баланса: провёл + штрафной («сгорает»).
+// Отмена — баланс не трогаем (ни учеником, ни учителем).
 export const LESSON_STATUS_DEDUCTS: Record<LessonStatus, boolean> = {
   conducted: true,
-  cancelled_by_student: true,
-  penalty: false,
+  penalty: true,
+  cancelled_by_student: false,
   cancelled_by_teacher: false,
 };
 

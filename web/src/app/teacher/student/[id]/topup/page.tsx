@@ -11,20 +11,27 @@ export default async function TopupPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAuth();
+  const auth = await requireAuth();
   const { id } = await params;
   const student = await findStudentById(id);
   if (!student) notFound();
 
   return (
-    <AppShell title="Пополнить баланс" back={{ href: `/teacher/student/${student.id}`, label: student.full_name }}>
-      <div className="card">
-        <p className="text-sm text-olive-gray mb-4">
-          Ученик: <strong>{student.full_name}</strong> · текущий баланс:{" "}
-          <strong>{Math.max(student.balance, 0)}</strong>
-        </p>
-        <TopupForm studentId={student.id} currentBalance={student.balance} />
-      </div>
+    <AppShell
+      title="Пополнить баланс"
+      back={{ href: `/teacher/student/${student.id}`, label: student.full_name }}
+    >
+      <p className="text-[15px] text-olive mb-5">
+        {student.full_name} · текущий баланс{" "}
+        <span className="font-medium text-near-black tabular-nums">
+          {student.balance}
+        </span>
+      </p>
+      <TopupForm
+        studentId={student.id}
+        currentBalance={student.balance}
+        actorName={auth.user.full_name}
+      />
     </AppShell>
   );
 }

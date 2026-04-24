@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type ChipTone = "neutral" | "good" | "warn" | "bad";
+export type ChipTone = "neutral" | "good" | "warn" | "bad" | "amber";
 export type ChipSize = "s" | "m";
 
 const TONES: Record<ChipTone, string> = {
@@ -8,6 +8,7 @@ const TONES: Record<ChipTone, string> = {
   good: "bg-[rgba(63,107,61,0.10)] text-moss",
   warn: "bg-[rgba(201,100,66,0.10)] text-terracotta",
   bad: "bg-[rgba(181,51,51,0.10)] text-crimson",
+  amber: "bg-[rgba(212,145,29,0.14)] text-[#8a5a1f]",
 };
 
 const SIZES: Record<ChipSize, string> = {

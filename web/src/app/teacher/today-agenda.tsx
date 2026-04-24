@@ -19,8 +19,10 @@ import { quickLogLessonAction } from "./lesson/new/actions";
 function relativeTime(slotTime: string, forDate: string): string | null {
   const today = new Date().toISOString().slice(0, 10);
   if (forDate !== today) return null;
-  const [h, m] = slotTime.split(":").map(Number);
-  if (isNaN(h) || isNaN(m)) return null;
+  const parts = slotTime.split(":").map(Number);
+  const h = parts[0];
+  const m = parts[1];
+  if (h === undefined || m === undefined || isNaN(h) || isNaN(m)) return null;
   const now = new Date();
   const slot = new Date();
   slot.setHours(h, m, 0, 0);

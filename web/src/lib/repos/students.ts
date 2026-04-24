@@ -3,7 +3,7 @@ import type { Student, LessonStatus, StudentStatus } from "@/lib/types";
 
 // ========================= ATTENTION =========================
 
-export type AttentionKind = "stale" | "skipping" | "dropped";
+export type AttentionKind = "stale" | "skipping" | "dropped" | "graduated";
 
 export interface StudentAttentionRow {
   student_id: string;
@@ -75,6 +75,7 @@ export async function listStudentsNeedingAttention(): Promise<StudentAttentionRo
         when 'dropped' then 1
         when 'skipping' then 2
         when 'stale' then 3
+        when 'graduated' then 4
       end,
       coalesce(last_any_lesson_date, last_conducted_date) desc nulls last,
       student_name

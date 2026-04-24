@@ -28,6 +28,7 @@ export default async function AttentionPage() {
   const dropped = rows.filter((r) => r.attention_kind === "dropped");
   const skipping = rows.filter((r) => r.attention_kind === "skipping");
   const stale = rows.filter((r) => r.attention_kind === "stale");
+  const graduated = rows.filter((r) => r.attention_kind === "graduated");
 
   return (
     <AppShell
@@ -63,6 +64,14 @@ export default async function AttentionPage() {
       {stale.length > 0 && (
         <Section title={`Давно не было урока (10+ дней) · ${stale.length}`} variant="neutral">
           {stale.map((r) => (
+            <Row key={r.student_id} r={r} />
+          ))}
+        </Section>
+      )}
+
+      {graduated.length > 0 && (
+        <Section title={`Выпускники · ${graduated.length}`} variant="neutral">
+          {graduated.map((r) => (
             <Row key={r.student_id} r={r} />
           ))}
         </Section>

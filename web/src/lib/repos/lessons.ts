@@ -1,12 +1,11 @@
 import { sql } from "@/lib/db";
 import type { LessonStatus } from "@/lib/types";
 
-// conducted и cancelled_by_student списывают урок с баланса
-// (ученик либо провёл, либо сам отменил → его ответственность → урок «сгорает»).
-// cancelled_by_teacher и penalty не списывают.
+// conducted и penalty списывают урок с баланса.
+// cancelled_by_student и cancelled_by_teacher — баланс не трогаем.
 export const LESSON_DEDUCT_STATUSES: LessonStatus[] = [
   "conducted",
-  "cancelled_by_student",
+  "penalty",
 ];
 
 export interface CreateLessonInput {

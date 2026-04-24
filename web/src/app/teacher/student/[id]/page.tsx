@@ -100,16 +100,21 @@ export default async function StudentCard({
     getStudentAttention(student.id),
   ]);
 
-  // Метрики
-  const total = breakdown.reduce((s, r) => s + r.total, 0);
+  // Метрики: total = conducted + penalty (основные, списанные с баланса).
+  // Отмены — считаем отдельно.
   const conducted = breakdown.reduce((s, r) => s + r.conducted, 0);
   const penalty = breakdown.reduce((s, r) => s + r.penalty, 0);
   const cancelledAll = breakdown.reduce(
     (s, r) => s + r.cancelled_by_student + r.cancelled_by_teacher,
     0,
   );
+  const total = conducted + penalty;
+  // Посещаемость = conducted / (conducted + penalty + cancelled_by_student).
+  // Отмена учителем не вина ученика.
+  const attendanceBase =
+    conducted + penalty + breakdown.reduce((s, r) => s + r.cancelled_by_student, 0);
   const attendance =
-    total > 0 ? Math.round((conducted / total) * 100) : null;
+    attendanceBase > 0 ? Math.round((conducted / attendanceBase) * 100) : null;
   const firstDate = breakdown.length
     ? breakdown
         .map((r) => r.first_lesson_date)
@@ -255,7 +260,7 @@ export default async function StudentCard({
           <div className="flex gap-[6px] mt-2 flex-wrap">
             {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
             {penalty > 0 && <Chip tone="bad" size="s">{penalty} штр</Chip>}
-            {cancelledAll > 0 && <Chip tone="warn" size="s">{cancelledAll} отм</Chip>}
+            {cancelledAll > 0 && <Chip tone="amber" size="s">{cancelledAll} отм</Chip>}
           </div>
         </div>
 

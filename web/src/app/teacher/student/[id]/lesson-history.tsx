@@ -38,9 +38,9 @@ function statusChip(status: LessonStatus) {
         штраф
       </Chip>
     );
-  // cancelled_by_student / cancelled_by_teacher
+  // cancelled_by_student / cancelled_by_teacher — жёлтая пилюля
   return (
-    <Chip tone="warn" size="s">
+    <Chip tone="amber" size="s">
       {LESSON_STATUS_LABEL[status]}
     </Chip>
   );
