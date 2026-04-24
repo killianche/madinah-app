@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth/session";
 import { USER_ROLE_LABEL } from "@/lib/types";
 import { BottomNav } from "./bottom-nav";
+import { ThemeToggleCompact } from "./ui/theme-toggle-compact";
 
 export async function AppShell({
   children,
@@ -33,6 +34,7 @@ export async function AppShell({
             <span className="text-olive-gray hidden sm:inline">
               {user.full_name} · {USER_ROLE_LABEL[user.role]}
             </span>
+            <ThemeToggleCompact />
             <form action="/logout" method="post" className="hidden sm:block">
               <button className="text-sm text-olive-gray hover:text-near-black">
                 Выйти

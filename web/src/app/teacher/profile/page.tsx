@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Link from "next/link";
 import { requireAuth } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Chip } from "@/components/ui/chip";
