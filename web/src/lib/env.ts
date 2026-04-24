@@ -13,7 +13,20 @@ const schema = z.object({
   SESSION_SECRET: z.string().min(32).default("change-me-in-production-1234567890"),
 });
 
-const parsed = schema.safeParse(process.env);
+// SKIP_ENV_VALIDATION=1 пропускает валидацию — нужно на этапе `next build`,
+// когда реальных секретов в образе нет (подставляются на старте контейнера).
+const isBuildTime = process.env.SKIP_ENV_VALIDATION === "1";
+
+const parsed = schema.safeParse(
+  isBuildTime
+    ? {
+        NODE_ENV: "production",
+        DATABASE_URL: "postgres://build:build@localhost:5432/build",
+        APP_URL: "http://localhost:3000",
+        SESSION_SECRET: "build-time-placeholder-padded-to-32-chars",
+      }
+    : process.env,
+);
 
 if (!parsed.success) {
   console.error("❌ Неверные переменные окружения:", parsed.error.flatten().fieldErrors);
