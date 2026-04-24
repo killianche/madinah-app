@@ -139,9 +139,10 @@ export async function getTeacherMonthlyStats(
 
 export async function listLessonsForTeacher(teacherId: string, limit = 100): Promise<LessonListItem[]> {
   const rows = await sql<LessonListItem[]>`
-    select l.id, l.lesson_date, l.lesson_time, l.status,
+    select l.id, l.lesson_date, l.lesson_time, l.status, l.topic,
            s.id as student_id, s.full_name as student_name,
-           t.id as teacher_id, t.full_name as teacher_name
+           t.id as teacher_id, t.full_name as teacher_name,
+           0::int as ordinal
     from lessons l
     join students s on s.id = l.student_id
     join teachers t on t.id = l.teacher_id
@@ -151,4 +152,66 @@ export async function listLessonsForTeacher(teacherId: string, limit = 100): Pro
     limit ${limit}
   `;
   return rows;
+}
+
+export interface TeacherTotalStats {
+  first_lesson_date: Date | null;
+  total_lessons: number;
+  conducted: number;
+  penalty: number;
+  cancelled: number;
+  unique_students: number;
+}
+
+/** Суммарная статистика учителя за всё время. */
+export async function getTeacherTotalStats(
+  teacherId: string,
+): Promise<TeacherTotalStats> {
+  const rows = await sql<TeacherTotalStats[]>`
+    select
+      min(lesson_date) as first_lesson_date,
+      count(*)::int as total_lessons,
+      count(*) filter (where status = 'conducted')::int as conducted,
+      count(*) filter (where status = 'penalty')::int as penalty,
+      count(*) filter (where status in ('cancelled_by_student','cancelled_by_teacher'))::int as cancelled,
+      count(distinct student_id)::int as unique_students
+    from lessons
+    where teacher_id = ${teacherId} and deleted_at is null
+  `;
+  return rows[0] ?? {
+    first_lesson_date: null,
+    total_lessons: 0,
+    conducted: 0,
+    penalty: 0,
+    cancelled: 0,
+    unique_students: 0,
+  };
+}
+
+export interface TeacherTopStudent {
+  student_id: string;
+  student_name: string;
+  conducted: number;
+  total: number;
+  balance: number;
+}
+
+/** Топ учеников учителя по числу проведённых уроков. */
+export async function getTeacherTopStudents(
+  teacherId: string,
+  limit = 10,
+): Promise<TeacherTopStudent[]> {
+  return sql<TeacherTopStudent[]>`
+    select s.id as student_id,
+           s.full_name as student_name,
+           count(*) filter (where l.status = 'conducted')::int as conducted,
+           count(*)::int as total,
+           s.balance::int
+    from lessons l
+    join students s on s.id = l.student_id
+    where l.teacher_id = ${teacherId} and l.deleted_at is null
+    group by s.id, s.full_name, s.balance
+    order by conducted desc, total desc
+    limit ${limit}
+  `;
 }

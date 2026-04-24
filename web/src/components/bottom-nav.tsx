@@ -11,13 +11,15 @@ type IconName =
   | "chart"
   | "user"
   | "attention"
-  | "problems";
+  | "problems"
+  | "plus";
 
 interface Tab {
   href: string;
   label: string;
   icon: IconName;
   match?: (pathname: string) => boolean;
+  fab?: boolean;
 }
 
 function tabsFor(role: UserRole): Tab[] {
@@ -37,6 +39,12 @@ function tabsFor(role: UserRole): Tab[] {
           p.startsWith("/teacher/students") || p.startsWith("/teacher/student/"),
       },
       {
+        href: "/teacher/lesson/new",
+        label: "Урок",
+        icon: "plus",
+        fab: true,
+      },
+      {
         href: "/teacher/stats",
         label: "Статистика",
         icon: "chart",
@@ -52,6 +60,7 @@ function tabsFor(role: UserRole): Tab[] {
     return [
       { href: "/admin", label: "Сотрудники", icon: "users" },
       { href: "/manager", label: "Ученики", icon: "calendar" },
+      { href: "/admin/users/new", label: "Создать", icon: "plus", fab: true },
       { href: "/manager/attention", label: "Внимание", icon: "attention" },
       { href: "/teacher/profile", label: "Профиль", icon: "user" },
     ];
@@ -66,6 +75,7 @@ function tabsFor(role: UserRole): Tab[] {
         p === "/manager" || p.startsWith("/manager?") || p.startsWith("/teacher/student/"),
     },
     { href: "/manager/attention", label: "Внимание", icon: "attention" },
+    { href: "/manager/students/new", label: "Ученик", icon: "plus", fab: true },
     { href: "/manager/problems", label: "Проблемные", icon: "problems" },
     { href: "/teacher/profile", label: "Профиль", icon: "user" },
   ];
@@ -81,11 +91,27 @@ export function BottomNav({ role }: { role: UserRole }) {
       aria-label="Основная навигация"
     >
       <ul
-        className="max-w-md mx-auto grid"
+        className="max-w-md mx-auto grid items-end"
         style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}
       >
         {tabs.map((t) => {
           const active = t.match ? t.match(pathname) : pathname === t.href;
+          if (t.fab) {
+            return (
+              <li key={t.href} className="relative flex justify-center">
+                <Link
+                  href={t.href}
+                  className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-terracotta text-ivory no-underline active:scale-95 transition-transform -translate-y-3"
+                  style={{
+                    boxShadow: "0 4px 12px rgba(201,100,66,0.35), 0 0 0 3px #f5f4ed",
+                  }}
+                  aria-label={t.label}
+                >
+                  <Icon name={t.icon} className="w-7 h-7" />
+                </Link>
+              </li>
+            );
+          }
           return (
             <li key={t.href} className="relative">
               {active && (
@@ -173,6 +199,13 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      );
+    case "plus":
+      return (
+        <svg {...props} strokeWidth={2.4}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       );
   }

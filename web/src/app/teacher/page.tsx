@@ -2,8 +2,9 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
-import { getTeacherDayAgenda } from "@/lib/repos/schedules";
+import { getTeacherDayAgenda, getTeacherWeekSchedule } from "@/lib/repos/schedules";
 import { TodayAgenda } from "./today-agenda";
+import { WeekStrip } from "@/components/ui/week-strip";
 
 export const metadata = { title: "Сегодня — Madinah" };
 export const dynamic = "force-dynamic";
@@ -41,7 +42,10 @@ export default async function TeacherHome({
   const today = new Date().toISOString().slice(0, 10);
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : today;
 
-  const agenda = await getTeacherDayAgenda(teacher.id, date);
+  const [agenda, weekSlots] = await Promise.all([
+    getTeacherDayAgenda(teacher.id, date),
+    getTeacherWeekSchedule(teacher.id),
+  ]);
 
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, +1);
@@ -52,11 +56,13 @@ export default async function TeacherHome({
   return (
     <AppShell>
       {/* Hero greeting */}
-      <section className="mb-6">
-        <h1 className="font-serif text-[32px] leading-[1.15] tracking-[-0.4px] font-medium text-near-black">
-          Здравствуй, {firstName}
+      <section className="mb-5">
+        <h1 className="font-serif text-[28px] leading-[1.15] tracking-[-0.4px] font-medium text-near-black">
+          Ассаламу алейкум,
+          <br />
+          {firstName}
         </h1>
-        <p className="text-[15px] text-olive mt-1 capitalize">{prettyDate}</p>
+        <p className="text-[14px] text-olive mt-1.5 first-letter:capitalize">{prettyDate}</p>
       </section>
 
       {/* Date navigation */}
@@ -86,19 +92,20 @@ export default async function TeacherHome({
         </Link>
       </div>
 
-      <TodayAgenda agenda={agenda} date={date} />
+      {/* Моя неделя — декоративно */}
+      {weekSlots.length > 0 && (
+        <section className="mb-5">
+          <div className="flex justify-between items-baseline mb-2">
+            <span className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone">
+              Моя неделя
+            </span>
+            <span className="text-[12px] text-stone">напоминание</span>
+          </div>
+          <WeekStrip slots={weekSlots} />
+        </section>
+      )}
 
-      {/* Primary CTA */}
-      <Link
-        href={`/teacher/lesson/new?date=${date}`}
-        className="mt-8 w-full inline-flex items-center justify-center gap-2 bg-terracotta text-ivory font-medium rounded-[12px] py-[14px] px-5 no-underline hover:brightness-95 active:scale-[0.985] transition-transform"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-        <span>Записать урок</span>
-      </Link>
+      <TodayAgenda agenda={agenda} date={date} />
     </AppShell>
   );
 }

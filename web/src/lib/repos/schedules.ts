@@ -38,6 +38,25 @@ export async function deactivateSchedule(scheduleId: string): Promise<void> {
   await sql`update student_schedules set active = false where id = ${scheduleId}`;
 }
 
+/**
+ * Агрегированное расписание учителя по дням недели — для декоративного WeekStrip.
+ * Возвращает уникальные (weekday, time_at) у активных учеников этого учителя.
+ */
+export async function getTeacherWeekSchedule(
+  teacherId: string,
+): Promise<Array<{ weekday: number; time_at: string }>> {
+  const rows = await sql<Array<{ weekday: number; time_at: string }>>`
+    select distinct sc.weekday, to_char(sc.time_at, 'HH24:MI') as time_at
+    from student_schedules sc
+    join students s on s.id = sc.student_id
+    where sc.active = true
+      and s.teacher_id = ${teacherId}
+      and s.status in ('active', 'paused')
+    order by sc.weekday, to_char(sc.time_at, 'HH24:MI')
+  `;
+  return rows;
+}
+
 // ============================================================
 // AGENDA — дневная повестка учителя
 // Строится из SQL-функции teacher_day_agenda(teacher_id, date):
