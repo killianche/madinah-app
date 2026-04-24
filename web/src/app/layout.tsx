@@ -38,6 +38,11 @@ export default function RootLayout({
             __html: `try{var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}`,
           }}
         />
+        {/* Apple PWA splash + icons */}
+        <link rel="apple-touch-icon" href="/icon.svg" />
+        <link rel="mask-icon" href="/icon.svg" color="#c96442" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#c96442" />
       </head>
       <body>
         <ToastProvider>{children}</ToastProvider>

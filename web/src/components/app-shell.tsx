@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth/session";
 import { USER_ROLE_LABEL } from "@/lib/types";
 import { BottomNav } from "./bottom-nav";
 import { ThemeToggleCompact } from "./ui/theme-toggle-compact";
+import { PullToRefresh } from "./ui/pull-to-refresh";
 
 export async function AppShell({
   children,
@@ -44,10 +45,12 @@ export async function AppShell({
         </div>
       </header>
 
-      <main className="container-prose py-6 sm:py-10 pb-28 sm:pb-10">
-        {title ? <h1 className="mb-6">{title}</h1> : null}
-        {children}
-      </main>
+      <PullToRefresh>
+        <main className="container-prose py-6 sm:py-10 pb-28 sm:pb-10">
+          {title ? <h1 className="mb-6">{title}</h1> : null}
+          {children}
+        </main>
+      </PullToRefresh>
 
       <BottomNav role={user.role} />
     </div>

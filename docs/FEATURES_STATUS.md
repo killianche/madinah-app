@@ -214,13 +214,20 @@ Design tokens из Teacher Home handoff: moss/crimson/stone/charcoal, BottomNav 
 - PWA иконка
 - Cron ночная сверка balance
 
-### v10 (следующая)
-- Pull-to-refresh, swipe, haptic
-- Offline режим (IndexedDB, sync)
-- Auto-deploy GitHub Actions → scp → redeploy
-- UptimeRobot + Sentry
-- Splash-screen
+### v10 (задеплоен)
+- ✅ Pull-to-refresh для мобильных
+- ✅ Haptic feedback hook + интеграция в toast
+- ✅ Splash-screen (apple-touch-icon, mask-icon, theme-color)
+- ✅ GitHub Actions auto-deploy workflow (нужен SSH_PRIVATE_KEY secret)
+- ✅ Sentry instrumentation hook (заготовка под подключение SDK)
+- ❌ Swipe-жесты — отвергнуто пользователем
+
+### v11 (следующая)
+- Offline режим (IndexedDB, sync queue)
+- UptimeRobot регистрация + конфиг
+- Sentry SDK npm install + DSN
 - CSV-экспорт уроков
+- Заготовка дашборда директора (когда вернёмся)
 
 ### V11+ (будущее)
 - Telegram-уведомления

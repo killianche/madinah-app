@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { haptic } from "@/lib/haptic";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -25,6 +26,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback((tone: ToastTone, text: string) => {
     const id = Date.now() + Math.random();
     setItems((arr) => [...arr, { id, tone, text }]);
+    haptic(tone === "error" ? "error" : tone === "success" ? "success" : "light");
     setTimeout(() => setItems((arr) => arr.filter((t) => t.id !== id)), 3500);
   }, []);
 
