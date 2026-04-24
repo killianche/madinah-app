@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Madinah App — Журнал уроков",
   description: "Учёт уроков и балансов учеников арабской школы",
   applicationName: "Madinah",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -196,6 +196,104 @@ export interface TeacherTopStudent {
   balance: number;
 }
 
+/** Уроки по дням за месяц — для спарклайна. */
+export async function getTeacherDailyLessons(
+  teacherId: string,
+  year: number,
+  month: number, // 1..12
+): Promise<Array<{ day: number; conducted: number; total: number }>> {
+  return sql<Array<{ day: number; conducted: number; total: number }>>`
+    select
+      extract(day from lesson_date)::int as day,
+      count(*) filter (where status = 'conducted')::int as conducted,
+      count(*)::int as total
+    from lessons
+    where teacher_id = ${teacherId}
+      and deleted_at is null
+      and extract(year from lesson_date) = ${year}
+      and extract(month from lesson_date) = ${month}
+    group by day
+    order by day
+  `;
+}
+
+/** Средняя нагрузка за последние N недель (conducted только). */
+export async function getTeacherWeeklyAverage(
+  teacherId: string,
+  weeks = 8,
+): Promise<number> {
+  const rows = await sql<Array<{ avg_per_week: number }>>`
+    select round(
+      count(*) filter (where status = 'conducted')::numeric
+      / ${weeks}::numeric,
+      1
+    )::float as avg_per_week
+    from lessons
+    where teacher_id = ${teacherId}
+      and deleted_at is null
+      and lesson_date >= current_date - ${weeks * 7}::int
+  `;
+  return rows[0]?.avg_per_week ?? 0;
+}
+
+/** Текущий стрик — непрерывные дни с conducted-уроками до сегодня. */
+export async function getTeacherStreak(teacherId: string): Promise<number> {
+  const rows = await sql<Array<{ streak: number }>>`
+    with days as (
+      select distinct lesson_date::date as d
+      from lessons
+      where teacher_id = ${teacherId}
+        and deleted_at is null
+        and status = 'conducted'
+      order by d desc
+    ),
+    numbered as (
+      select d, row_number() over (order by d desc)::int as rn
+      from days
+    ),
+    streak_rows as (
+      select d, rn
+      from numbered
+      where (current_date - d)::int = rn - 1
+    )
+    select coalesce(count(*), 0)::int as streak from streak_rows
+  `;
+  return rows[0]?.streak ?? 0;
+}
+
+/** Процентиль учителя по числу conducted-уроков за последние 30 дней. */
+export async function getTeacherSchoolRank(
+  teacherId: string,
+): Promise<{ percentile: number; totalTeachers: number } | null> {
+  const rows = await sql<Array<{ percentile: number; total_teachers: number }>>`
+    with totals as (
+      select teacher_id, count(*)::int as n
+      from lessons
+      where deleted_at is null
+        and status = 'conducted'
+        and lesson_date >= current_date - 30
+      group by teacher_id
+    ),
+    me as (select n from totals where teacher_id = ${teacherId}),
+    ranked as (
+      select
+        (select n from me)                                     as my_n,
+        count(*)                                                as total_teachers,
+        count(*) filter (where n < (select n from me))::int    as below
+      from totals
+    )
+    select
+      case when total_teachers = 0 then 0
+           else round((below::numeric / total_teachers) * 100)::int
+      end as percentile,
+      total_teachers::int as total_teachers
+    from ranked
+  `;
+  const r = rows[0];
+  if (!r) return null;
+  return { percentile: r.percentile, totalTeachers: r.total_teachers };
+}
+
 /** Топ учеников учителя по числу проведённых уроков. */
 export async function getTeacherTopStudents(
   teacherId: string,

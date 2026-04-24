@@ -13,9 +13,33 @@ import { quickLogLessonAction } from "./lesson/new/actions";
 /**
  * Повестка дня учителя.
  * Сверху — прогресс «провёл N из M» + бар.
- * Слоты на сегодня с 3 кнопками отметки (Провёл / Отменён / Штраф).
+ * Слоты на сегодня с 3 кнопками отметки и относительным временем.
  * Ниже — секция «Записано» с уже отмеченными уроками.
  */
+function relativeTime(slotTime: string, forDate: string): string | null {
+  const today = new Date().toISOString().slice(0, 10);
+  if (forDate !== today) return null;
+  const [h, m] = slotTime.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const now = new Date();
+  const slot = new Date();
+  slot.setHours(h, m, 0, 0);
+  const diffMin = Math.round((slot.getTime() - now.getTime()) / 60000);
+  if (diffMin >= -30 && diffMin <= 30 && diffMin !== 0) {
+    if (diffMin < 0 && diffMin > -60) return "идёт сейчас";
+    if (diffMin > 0 && diffMin < 60) return `через ${diffMin} мин`;
+  }
+  if (diffMin > 60 && diffMin < 480) {
+    const hours = Math.floor(diffMin / 60);
+    return `через ${hours} ч`;
+  }
+  if (diffMin <= -60 && diffMin > -240) {
+    const hours = Math.floor(-diffMin / 60);
+    return `был ${hours} ч назад`;
+  }
+  return null;
+}
+
 export function TodayAgenda({ agenda, date }: { agenda: AgendaItem[]; date: string }) {
   const scheduled = agenda.filter((a) => a.kind === "scheduled");
   const done = agenda.filter((a) => a.kind === "lesson");
@@ -123,6 +147,7 @@ function ScheduledCard({ a, date }: { a: AgendaItem; date: string }) {
   }
 
   const isLow = a.student_balance <= 0;
+  const relTime = a.slot_time ? relativeTime(a.slot_time, date) : null;
 
   return (
     <div
@@ -147,6 +172,16 @@ function ScheduledCard({ a, date }: { a: AgendaItem; date: string }) {
               <Chip tone="bad" size="s">
                 низкий баланс
               </Chip>
+            )}
+            {relTime && (
+              <span
+                className={cn(
+                  "text-[12px] font-medium",
+                  relTime === "идёт сейчас" ? "text-terracotta" : "text-olive",
+                )}
+              >
+                {relTime}
+              </span>
             )}
           </div>
         </div>

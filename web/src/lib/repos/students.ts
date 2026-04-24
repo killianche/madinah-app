@@ -22,6 +22,46 @@ export interface StudentAttentionRow {
  * Ученики, требующие внимания куратора: серая зона (stale/skipping) + dropped.
  * Сортировка: свежие события первыми (dropped → skipping → stale; внутри — позже по дате).
  */
+/**
+ * Ученики учителя с низким балансом и давно без пополнений — подсказка учителю
+ * «напомни пополнить».
+ */
+export interface StaleTopupRow {
+  student_id: string;
+  student_name: string;
+  balance: number;
+  last_topup_date: Date | null;
+  days_since_topup: number | null;
+}
+
+export async function teacherStudentsNeedTopup(
+  teacherId: string,
+  limit = 20,
+): Promise<StaleTopupRow[]> {
+  return sql<StaleTopupRow[]>`
+    select
+      s.id as student_id,
+      s.full_name as student_name,
+      s.balance::int,
+      lt.d as last_topup_date,
+      case when lt.d is null then null
+           else (current_date - lt.d)::int
+      end as days_since_topup
+    from students s
+    left join lateral (
+      select max(created_at::date) as d
+      from balance_topups
+      where student_id = s.id
+    ) lt on true
+    where s.teacher_id = ${teacherId}
+      and s.status = 'active'
+      and s.balance <= 3
+      and (lt.d is null or (current_date - lt.d) >= 30)
+    order by s.balance, lt.d nulls first
+    limit ${limit}
+  `;
+}
+
 export async function listStudentsNeedingAttention(): Promise<StudentAttentionRow[]> {
   return sql<StudentAttentionRow[]>`
     select student_id, student_name, phone,
@@ -261,24 +301,39 @@ export async function changeStudentTeacher(input: {
 export interface StudentListItem {
   id: string;
   full_name: string;
+  phone: string | null;
   balance: number;
   is_charity: boolean;
+  status: StudentStatus;
   last_lesson_date: Date | null;
   last_lesson_status: LessonStatus | null;
+  first_lesson_date: Date | null;
+  conducted: number;
+  total: number;
+  attendance_pct: number | null;  // 0..100 или null если нет уроков
 }
 
 /**
- * Компактная выборка для главного экрана учителя — сразу с баланс и last lesson.
+ * Список учеников учителя с обогащённой аналитикой для /teacher/students.
  */
 export async function teacherStudentList(teacherId: string): Promise<StudentListItem[]> {
   const rows = await sql<StudentListItem[]>`
     select
       s.id,
       s.full_name,
+      s.phone,
       s.balance,
       s.is_charity,
+      s.status,
       last_lesson.lesson_date as last_lesson_date,
-      last_lesson.status as last_lesson_status
+      last_lesson.status as last_lesson_status,
+      agg.first_lesson_date,
+      agg.conducted::int,
+      agg.total::int,
+      case when agg.total > 0
+           then round((agg.conducted::numeric / agg.total) * 100)::int
+           else null
+      end as attendance_pct
     from students s
     left join lateral (
       select lesson_date, status
@@ -287,6 +342,14 @@ export async function teacherStudentList(teacherId: string): Promise<StudentList
       order by lesson_date desc, created_at desc
       limit 1
     ) last_lesson on true
+    left join lateral (
+      select
+        min(lesson_date) as first_lesson_date,
+        count(*) filter (where status = 'conducted')::int as conducted,
+        count(*)::int as total
+      from lessons
+      where student_id = s.id and deleted_at is null
+    ) agg on true
     where s.teacher_id = ${teacherId}
       and s.status in ('active', 'paused')
     order by s.full_name

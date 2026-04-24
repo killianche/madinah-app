@@ -3,12 +3,17 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Chip } from "@/components/ui/chip";
+import { Sparkline } from "@/components/ui/sparkline";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
 import {
   getTeacherMonthlyStats,
   getTeacherTotalStats,
   getTeacherTopStudents,
   listLessonsForTeacher,
+  getTeacherDailyLessons,
+  getTeacherWeeklyAverage,
+  getTeacherStreak,
+  getTeacherSchoolRank,
 } from "@/lib/repos/lessons";
 import { LESSON_STATUS_LABEL, type LessonStatus } from "@/lib/types";
 
@@ -49,12 +54,28 @@ export default async function TeacherStats() {
   const teacher = await findTeacherByUserId(user.id);
   if (!teacher) notFound();
 
-  const [monthly, totals, topStudents, recentLessons] = await Promise.all([
-    getTeacherMonthlyStats(teacher.id, 24),
-    getTeacherTotalStats(teacher.id),
-    getTeacherTopStudents(teacher.id, 10),
-    listLessonsForTeacher(teacher.id, 10),
-  ]);
+  const now = new Date();
+  const [monthly, totals, topStudents, recentLessons, dailyNow, weeklyAvg, streak, rank] =
+    await Promise.all([
+      getTeacherMonthlyStats(teacher.id, 24),
+      getTeacherTotalStats(teacher.id),
+      getTeacherTopStudents(teacher.id, 10),
+      listLessonsForTeacher(teacher.id, 10),
+      getTeacherDailyLessons(teacher.id, now.getFullYear(), now.getMonth() + 1),
+      getTeacherWeeklyAverage(teacher.id, 8),
+      getTeacherStreak(teacher.id),
+      getTeacherSchoolRank(teacher.id),
+    ]);
+
+  // массив 1..N дней для спарклайна
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const sparkData: number[] = Array(daysInMonth).fill(0);
+  for (const row of dailyNow) {
+    if (row.day >= 1 && row.day <= daysInMonth) sparkData[row.day - 1] = row.conducted;
+  }
+  const percentileTop = rank && rank.totalTeachers > 1
+    ? 100 - rank.percentile  // top X% = 100 - percentile
+    : null;
 
   const heroMonth = monthly[0];
   const prevMonth = monthly[1];
@@ -70,6 +91,48 @@ export default async function TeacherStats() {
 
   return (
     <AppShell title="Статистика">
+      {/* Quick stats row */}
+      <div className="grid grid-cols-3 gap-[10px] mb-[14px]">
+        <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
+          <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
+            В неделю
+          </div>
+          <div className="font-serif text-[22px] font-medium tabular-nums leading-none">
+            {weeklyAvg}
+          </div>
+          <div className="text-[11px] text-olive mt-1">уроков в ср.</div>
+        </div>
+        <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
+          <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
+            Стрик
+          </div>
+          <div className="font-serif text-[22px] font-medium tabular-nums leading-none text-terracotta">
+            {streak}
+          </div>
+          <div className="text-[11px] text-olive mt-1">
+            {streak === 1 ? "день подряд" : "дней подряд"}
+          </div>
+        </div>
+        <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
+          <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
+            В школе
+          </div>
+          {percentileTop !== null ? (
+            <>
+              <div className="font-serif text-[22px] font-medium tabular-nums leading-none text-moss">
+                топ {percentileTop}%
+              </div>
+              <div className="text-[11px] text-olive mt-1">за 30 дн.</div>
+            </>
+          ) : (
+            <>
+              <div className="font-serif text-[22px] font-medium leading-none text-stone">—</div>
+              <div className="text-[11px] text-olive mt-1">за 30 дн.</div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Hero totals */}
       <section
         className="bg-ivory rounded-[16px] p-5 mb-[22px]"
@@ -114,6 +177,15 @@ export default async function TeacherStats() {
             className="bg-ivory rounded-[16px] p-5 mb-2"
             style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
           >
+            {/* Sparkline */}
+            <div className="mb-3">
+              <Sparkline data={sparkData} />
+              <div className="flex justify-between text-[10px] text-stone mt-1 tabular-nums">
+                <span>1</span>
+                <span>{Math.floor(daysInMonth / 2)}</span>
+                <span>{daysInMonth}</span>
+              </div>
+            </div>
             <div className="flex justify-between items-baseline mb-[14px]">
               <div className="font-serif text-[22px] font-medium tracking-[-0.2px]">
                 {formatMonth(heroMonth.month)}
