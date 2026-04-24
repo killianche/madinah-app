@@ -5,16 +5,22 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import type { LessonStatus } from "@/lib/types";
-import { LESSON_STATUS_LABEL } from "@/lib/types";
+import { LESSON_STATUS_LABEL, LESSON_STATUS_DEDUCTS } from "@/lib/types";
 import { createLessonAction } from "./actions";
 import { cn } from "@/lib/cn";
 
-const STATUSES: LessonStatus[] = ["conducted", "penalty", "cancelled_by_teacher", "cancelled_by_student"];
-const DEDUCT_HINTS: Record<LessonStatus, string> = {
-  conducted: "−1 с баланса",
-  penalty: "−1 с баланса (ученик не пришёл)",
-  cancelled_by_teacher: "баланс не трогаем",
-  cancelled_by_student: "баланс не трогаем",
+const STATUSES: LessonStatus[] = [
+  "conducted",
+  "cancelled_by_student",
+  "cancelled_by_teacher",
+  "penalty",
+];
+
+const STATUS_HINTS: Record<LessonStatus, string> = {
+  conducted: "урок проведён — списываем 1 с баланса",
+  cancelled_by_student: "ученик отменил — урок сгорает, -1 с баланса",
+  cancelled_by_teacher: "учитель отменил — баланс не трогаем",
+  penalty: "штраф — пометка, баланс не трогаем",
 };
 
 export function NewLessonForm({
@@ -32,7 +38,6 @@ export function NewLessonForm({
   const [studentId, setStudentId] = useState(defaultStudentId ?? students[0]?.id ?? "");
   const today = new Date().toISOString().slice(0, 10);
   const [lessonDate, setLessonDate] = useState(defaultDate ?? today);
-  const [lessonTime, setLessonTime] = useState<string>("");
   const [status, setStatus] = useState<LessonStatus>("conducted");
   const [topic, setTopic] = useState("");
 
@@ -45,7 +50,6 @@ export function NewLessonForm({
       const result = await createLessonAction({
         student_id: studentId,
         lesson_date: lessonDate,
-        lesson_time: lessonTime || null,
         status,
         topic: topic.trim() || null,
       });
@@ -76,23 +80,14 @@ export function NewLessonForm({
         </select>
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Дата проведения">
-          <Input
-            type="date"
-            value={lessonDate}
-            onChange={(e) => setLessonDate(e.target.value)}
-            required
-          />
-        </Field>
-        <Field label="Время (необязательно)">
-          <Input
-            type="time"
-            value={lessonTime}
-            onChange={(e) => setLessonTime(e.target.value)}
-          />
-        </Field>
-      </div>
+      <Field label="Дата">
+        <Input
+          type="date"
+          value={lessonDate}
+          onChange={(e) => setLessonDate(e.target.value)}
+          required
+        />
+      </Field>
 
       <fieldset className="space-y-2">
         <legend className="label">Статус урока</legend>
@@ -114,7 +109,7 @@ export function NewLessonForm({
             />
             <div className="flex-1">
               <div className="text-sm font-medium">{LESSON_STATUS_LABEL[st]}</div>
-              <div className="text-xs text-olive-gray">{DEDUCT_HINTS[st]}</div>
+              <div className="text-xs text-olive-gray">{STATUS_HINTS[st]}</div>
             </div>
           </label>
         ))}
@@ -136,7 +131,7 @@ export function NewLessonForm({
         <div className="text-sm text-olive-gray bg-subtle/40 rounded-md p-3">
           После записи баланс {selected.name}:{" "}
           <span className="font-medium text-near-black">
-            {["conducted", "penalty"].includes(status) ? selected.balance - 1 : selected.balance}
+            {LESSON_STATUS_DEDUCTS[status] ? selected.balance - 1 : selected.balance}
           </span>
         </div>
       )}

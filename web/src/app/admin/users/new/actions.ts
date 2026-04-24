@@ -7,7 +7,7 @@ import { generateTempPassword } from "@/lib/auth/password";
 
 const schema = z.object({
   full_name: z.string().trim().min(2),
-  role: z.enum(["admin", "director", "manager", "curator", "teacher"]),
+  role: z.enum(["admin", "director", "manager", "curator", "head", "teacher"]),
   phone: z.string().trim().nullable().optional(),
   email: z.string().trim().email().nullable().optional().or(z.literal("").transform(() => null)),
   teacher_id: z.string().uuid().nullable().optional(),

@@ -17,7 +17,7 @@ export async function topupAction(
   if (!parsed.success) return { ok: false, error: "Некорректные данные" };
 
   const { user } = await requireAuth();
-  if (!["teacher", "manager", "curator", "director", "admin"].includes(user.role)) {
+  if (!["teacher", "manager", "curator", "head", "director", "admin"].includes(user.role)) {
     return { ok: false, error: "Недостаточно прав" };
   }
 

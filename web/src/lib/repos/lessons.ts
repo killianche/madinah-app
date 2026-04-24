@@ -1,7 +1,13 @@
 import { sql } from "@/lib/db";
 import type { LessonStatus } from "@/lib/types";
 
-export const LESSON_DEDUCT_STATUSES: LessonStatus[] = ["conducted", "penalty"];
+// conducted и cancelled_by_student списывают урок с баланса
+// (ученик либо провёл, либо сам отменил → его ответственность → урок «сгорает»).
+// cancelled_by_teacher и penalty не списывают.
+export const LESSON_DEDUCT_STATUSES: LessonStatus[] = [
+  "conducted",
+  "cancelled_by_student",
+];
 
 export interface CreateLessonInput {
   student_id: string;

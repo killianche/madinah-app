@@ -8,7 +8,7 @@ import type { UserRole } from "@/lib/types";
 import { USER_ROLE_LABEL } from "@/lib/types";
 import { createUserAction } from "./actions";
 
-const ROLES: UserRole[] = ["teacher", "manager", "curator", "director", "admin"];
+const ROLES: UserRole[] = ["teacher", "manager", "curator", "head", "director", "admin"];
 
 export function NewUserForm({ teachers }: { teachers: { id: string; name: string }[] }) {
   const router = useRouter();

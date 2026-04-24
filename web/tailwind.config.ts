@@ -25,26 +25,44 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Основные (дизайн-токены)
         parchment: "#f5f4ed",
         ivory: "#faf9f5",
+        "near-black": "#141413",
+        charcoal: "#4d4c48",
+        "olive-gray": {
+          DEFAULT: "#5e5d59",
+          light: "#87867f",
+        },
+        olive: "#5e5d59",
+        stone: "#87867f",
+        "border-cream": "#f0eee6",
+        "border-warm": "#e8e6dc",
+        "warm-sand": "#e8e6dc",
+        subtle: "#ebe8df",
+
+        // Акценты
         terracotta: {
           DEFAULT: "#c96442",
           hover: "#b45736",
           active: "#9f4a2c",
           soft: "#f4dacf",
         },
-        "near-black": "#141413",
-        "olive-gray": {
-          DEFAULT: "#5e5d59",
-          light: "#87857f",
-        },
-        subtle: "#ebe8df",
-        // statuses
+        crimson: "#b53333",
+        moss: "#3f6b3d",
+        "focus-blue": "#3898ec",
+
+        // Tonal chip backgrounds (для utility-классов)
+        "tone-good-bg": "rgba(63,107,61,0.10)",
+        "tone-warn-bg": "rgba(201,100,66,0.10)",
+        "tone-bad-bg": "rgba(181,51,51,0.10)",
+
+        // statuses (legacy)
         status: {
-          conducted: "#5a7f3e",
-          penalty: "#b45736",
-          "cancelled-teacher": "#87857f",
-          "cancelled-student": "#87857f",
+          conducted: "#3f6b3d",
+          penalty: "#b53333",
+          "cancelled-teacher": "#87867f",
+          "cancelled-student": "#c96442",
         },
       },
       fontFamily: {
