@@ -62,49 +62,43 @@ export function TodayAgenda({
   const cancelled = done.length - conducted - penalty;
   const counted = conducted + penalty; // засчитано с баланса
   const total = done.length;
-  const max = Math.max(total, scheduled.length, 1);
 
   return (
     <section className="mb-6">
-      {/* Счётчик проведённых за день */}
-      {(total > 0 || scheduled.length > 0) && (
+      {/* Счётчик проведённых за день — без планов, только факты */}
+      {total > 0 && (
         <div
-          className="bg-ivory rounded-[16px] p-4 mb-4"
+          className="bg-ivory rounded-[16px] p-5 mb-4"
           style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
         >
-          <div className="flex items-baseline justify-between mb-3">
+          <div className="flex items-end justify-between mb-3">
             <div>
-              <div className="font-serif text-[36px] font-medium tabular-nums leading-none tracking-[-0.4px]">
+              <div className="font-serif text-[44px] font-medium tabular-nums leading-none tracking-[-0.6px]">
                 {counted}
               </div>
-              <div className="text-[12px] text-olive mt-1">засчитано сегодня</div>
+              <div className="text-[12px] text-olive mt-2 uppercase tracking-[0.6px] font-medium">
+                {counted === 1 ? "урок засчитан" : counted < 5 ? "урока засчитано" : "уроков засчитано"}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-[6px] justify-end">
+            <div className="flex flex-col gap-[6px] items-end">
               {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
               {penalty > 0 && <Chip tone="bad" size="s">{penalty} штраф</Chip>}
               {cancelled > 0 && <Chip tone="amber" size="s">{cancelled} отм.</Chip>}
             </div>
           </div>
 
-          {/* Мини-бар: conducted + penalty + cancelled + остаток из расписания */}
-          <div className="flex gap-[2px] h-2">
-            {Array.from({ length: max }).map((_, i) => {
-              let color = "#e8e6dc"; // пусто (предстоит)
-              if (i < conducted) color = "#3f6b3d"; // moss
-              else if (i < conducted + penalty) color = "#b53333"; // crimson
-              else if (i < conducted + penalty + cancelled) color = "#d4911d"; // amber
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-[1px]"
-                  style={{ backgroundColor: color }}
-                />
-              );
-            })}
-          </div>
-          {scheduled.length > 0 && (
-            <div className="text-[12px] text-olive mt-2 tabular-nums">
-              осталось по плану {scheduled.length}
+          {/* Чистый stacked-bar пропорционально статусам */}
+          {(conducted + penalty + cancelled) > 0 && (
+            <div className="flex gap-[2px] h-[6px] rounded-full overflow-hidden">
+              {conducted > 0 && (
+                <div className="bg-moss h-full" style={{ flex: conducted }} />
+              )}
+              {penalty > 0 && (
+                <div className="bg-crimson h-full" style={{ flex: penalty }} />
+              )}
+              {cancelled > 0 && (
+                <div className="h-full" style={{ flex: cancelled, backgroundColor: "#d4911d" }} />
+              )}
             </div>
           )}
         </div>
