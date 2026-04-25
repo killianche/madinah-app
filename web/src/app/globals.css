@@ -74,6 +74,78 @@
     background-color: #c96442;
   }
 
+  /* Header sticky bar */
+  html.dark .bg-parchment\/85 {
+    background-color: rgba(20, 20, 19, 0.85) !important;
+  }
+  html.dark .border-subtle {
+    border-color: #2a2a28 !important;
+  }
+  html.dark .border-border-cream {
+    border-color: #2a2a28 !important;
+  }
+  html.dark .text-olive-gray {
+    color: #a8a69c !important;
+  }
+  html.dark .text-charcoal {
+    color: #d6d3c7 !important;
+  }
+  html.dark .hover\:bg-border-cream:hover {
+    background-color: #2a2a28 !important;
+  }
+  html.dark .hover\:bg-parchment:hover {
+    background-color: #2a2a28 !important;
+  }
+
+  /* BottomNav */
+  html.dark .border-t {
+    border-top-color: #2a2a28 !important;
+  }
+
+  /* Chips dark variants */
+  html.dark .bg-warm-sand {
+    background-color: #2a2a28 !important;
+  }
+
+  /* Action card "Действия" + Hero metrics — обеспечить контраст текста */
+  html.dark .text-olive {
+    color: #a8a69c !important;
+  }
+  html.dark .text-stone {
+    color: #87867f !important;
+  }
+  html.dark .text-crimson {
+    color: #ff6c6c !important;
+  }
+  html.dark .text-moss {
+    color: #6da76b !important;
+  }
+
+  /* Inputs / textareas focus state в тёмной теме */
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    color: #6c6b65;
+  }
+
+  /* Карточки на parchment-фоне (action tiles tel/tg) */
+  html.dark .bg-parchment {
+    background-color: #1a1a18 !important;
+  }
+
+  /* Pull-to-refresh spinner */
+  html.dark .border-terracotta {
+    border-color: #c96442 !important;
+  }
+
+  /* Активный таб в фильтрах: чёрная пилюля на тёмном фоне сливается,
+     меняем на terracotta для контраста */
+  html.dark .bg-near-black {
+    background-color: #c96442 !important;
+  }
+  html.dark .bg-near-black\/40 {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+  }
+
   /* заголовки — serif 500 */
   h1, h2, h3, h4 {
     @apply font-serif font-medium text-near-black;
