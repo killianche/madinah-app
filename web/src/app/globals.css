@@ -134,6 +134,31 @@
     border-color: #c96442 !important;
   }
 
+  /* ========== ПРИГЛУШЁННЫЕ АКЦЕНТЫ В ТЁМНОЙ ТЕМЕ ========== */
+
+  /* Большие числа и текст */
+  html.dark .text-moss { color: #8db589 !important; }
+  html.dark .text-crimson { color: #e88080 !important; }
+  html.dark .text-terracotta { color: #d98669 !important; }
+
+  /* Bar-цвета (счётчик дня, stacked-bar в истории по учителям) */
+  html.dark .bg-moss { background-color: #6da76b !important; }
+  html.dark .bg-crimson { background-color: #d06868 !important; }
+
+  /* SVG спарклайн и donut в статистике — приглушённые */
+  html.dark svg rect[fill="#c96442"] { fill: #b87a5b !important; }
+  html.dark svg rect[fill="#e8e6dc"] { fill: #2a2a28 !important; }
+  html.dark svg circle[stroke="#e8e6dc"] { stroke: #2a2a28 !important; }
+
+  /* WeekStrip активный слот */
+  html.dark [style*="rgba(201,100,66,0.12)"] {
+    background-color: rgba(201, 100, 66, 0.18) !important;
+  }
+  /* Stacked-bar amber (cancelled) */
+  html.dark [style*="background-color: #d4911d"] {
+    background-color: #b8884a !important;
+  }
+
   /* Активный таб в фильтрах: чёрная пилюля на тёмном фоне сливается,
      меняем на terracotta для контраста */
   html.dark .bg-near-black {
