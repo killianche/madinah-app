@@ -18,26 +18,26 @@ export async function AppShell({
 
   return (
     <div className="min-h-screen bg-parchment">
-      <header className="sticky top-0 z-10 backdrop-blur bg-parchment/85 border-b border-subtle">
+      <header className="sticky top-0 z-10 backdrop-blur bg-parchment/85 dark:bg-[rgba(20,20,19,0.92)] border-b border-subtle dark:border-[#2a2a28]">
         <div className="container-prose flex items-center justify-between py-3">
           <div className="flex items-center gap-4">
             {back ? (
-              <Link href={back.href} className="text-sm text-olive-gray hover:text-near-black no-underline">
+              <Link href={back.href} className="text-sm text-olive-gray dark:text-[#a8a69c] hover:text-near-black dark:hover:text-ivory no-underline">
                 ← {back.label}
               </Link>
             ) : (
-              <Link href="/" className="font-serif text-xl text-near-black no-underline">
+              <Link href="/" className="font-serif text-xl text-near-black dark:text-ivory no-underline">
                 Madinah
               </Link>
             )}
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="text-olive-gray hidden sm:inline">
+            <span className="text-olive-gray dark:text-[#a8a69c] hidden sm:inline">
               {user.full_name} · {USER_ROLE_LABEL[user.role]}
             </span>
             <ThemeToggleCompact />
             <form action="/logout" method="post" className="hidden sm:block">
-              <button className="text-sm text-olive-gray hover:text-near-black">
+              <button className="text-sm text-olive-gray dark:text-[#a8a69c] hover:text-near-black dark:hover:text-ivory">
                 Выйти
               </button>
             </form>

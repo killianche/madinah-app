@@ -74,10 +74,7 @@
     background-color: #c96442;
   }
 
-  /* Header sticky bar */
-  html.dark .bg-parchment\/85 {
-    background-color: rgba(20, 20, 19, 0.85) !important;
-  }
+  /* Header sticky bar — управляется через dark: класс в JSX */
   html.dark .border-subtle {
     border-color: #2a2a28 !important;
   }
