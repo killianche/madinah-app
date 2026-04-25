@@ -258,17 +258,22 @@ export default async function StudentCard({
           <div className="text-[11px] text-olive mt-1">уроков осталось</div>
         </div>
 
-        {/* Всего уроков */}
+        {/* Засчитано (conducted + penalty) */}
         <div className="bg-ivory rounded-[14px] shadow-ring p-4">
           <div className="text-[11px] font-medium uppercase tracking-[0.6px] text-stone mb-2">
-            Всего уроков
+            Засчитано
           </div>
-          <div className="font-serif text-[26px] font-medium leading-none tabular-nums">{total}</div>
-          <div className="flex gap-[6px] mt-2 flex-wrap">
-            {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
-            {penalty > 0 && <Chip tone="bad" size="s">{penalty} штр</Chip>}
-            {cancelledAll > 0 && <Chip tone="amber" size="s">{cancelledAll} отм</Chip>}
+          <div className="font-serif text-[26px] font-medium leading-none tabular-nums">
+            {total}
           </div>
+          <div className="text-[11px] text-olive mt-1 tabular-nums">
+            {conducted} провёл{penalty > 0 && ` · ${penalty} штраф`}
+          </div>
+          {cancelledAll > 0 && (
+            <div className="mt-2">
+              <Chip tone="amber" size="s">отм. {cancelledAll}</Chip>
+            </div>
+          )}
         </div>
 
         {/* Текущий учитель */}

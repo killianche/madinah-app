@@ -14,7 +14,7 @@ export interface LessonRow {
   ordinal: number;
 }
 
-type Filter = "all" | "held" | "bad";
+type Filter = "all" | "counted" | "cancelled";
 
 function fmtDate(d: string | Date): string {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -50,11 +50,22 @@ export function LessonHistory({ lessons }: { lessons: LessonRow[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [limit, setLimit] = useState(20);
 
+  // Засчитанные = conducted + penalty (списано с баланса)
+  // Отменённые = cancelled_by_student + cancelled_by_teacher (не списано)
+  const counts = useMemo(() => {
+    const counted = lessons.filter(
+      (l) => l.status === "conducted" || l.status === "penalty",
+    ).length;
+    const cancelled = lessons.length - counted;
+    return { counted, cancelled, total: lessons.length };
+  }, [lessons]);
+
   const filtered = useMemo(() => {
     return lessons.filter((l) => {
       if (filter === "all") return true;
-      if (filter === "held") return l.status === "conducted";
-      return l.status !== "conducted"; // bad
+      if (filter === "counted")
+        return l.status === "conducted" || l.status === "penalty";
+      return l.status === "cancelled_by_student" || l.status === "cancelled_by_teacher";
     });
   }, [filter, lessons]);
 
@@ -63,20 +74,26 @@ export function LessonHistory({ lessons }: { lessons: LessonRow[] }) {
   return (
     <div>
       {/* Filters */}
-      <div className="flex items-center gap-[6px] mb-3">
+      <div className="flex items-center gap-[6px] mb-2">
         <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
-          Все
+          Все · {counts.total}
         </FilterPill>
-        <FilterPill active={filter === "held"} onClick={() => setFilter("held")}>
-          Проведённые
+        <FilterPill
+          active={filter === "counted"}
+          onClick={() => setFilter("counted")}
+        >
+          Засчитано · {counts.counted}
         </FilterPill>
-        <FilterPill active={filter === "bad"} onClick={() => setFilter("bad")}>
-          Проблемные
+        <FilterPill
+          active={filter === "cancelled"}
+          onClick={() => setFilter("cancelled")}
+        >
+          Отменено · {counts.cancelled}
         </FilterPill>
-        <span className="ml-auto text-[12px] text-stone tabular-nums">
-          {filtered.length} всего
-        </span>
       </div>
+      <p className="text-[12px] text-stone mb-3 tabular-nums">
+        Засчитано (с баланса): провёл + штраф · Отменено баланс не трогает
+      </p>
 
       {shown.length === 0 ? (
         <div className="bg-ivory rounded-[14px] shadow-ring p-4 text-olive text-sm">

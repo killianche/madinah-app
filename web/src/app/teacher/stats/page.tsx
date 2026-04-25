@@ -294,8 +294,10 @@ export default async function TeacherStats() {
                 <div className="min-w-0">
                   <div className="text-[15px] font-medium truncate">{s.student_name}</div>
                   <div className="text-[12px] text-olive tabular-nums mt-0.5">
-                    {s.conducted} провёл
-                    {s.penalty > 0 && ` · ${s.penalty} штраф`}
+                    засчитано {s.conducted + s.penalty}
+                    <span className="text-stone ml-1">
+                      ({s.conducted} провёл{s.penalty > 0 && ` + ${s.penalty} штр`})
+                    </span>
                   </div>
                 </div>
                 <div
