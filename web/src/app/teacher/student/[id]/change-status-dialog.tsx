@@ -13,10 +13,10 @@ const STATUSES: {
   helper: string;
 }[] = [
   { value: "active", label: "Обучается", helper: "видим везде, по умолчанию" },
-  { value: "paused", label: "В отпуске", helper: "временно, вернётся — не в «Сегодня», не в «Проблемных»" },
-  { value: "graduated", label: "Выпускник", helper: "закончил успешно — скрыт из списка" },
-  { value: "dropped", label: "Бросил", helper: "прекратил обучение — скрыт из списка" },
-  { value: "archived", label: "Архив", helper: "прочие причины — скрыт из списка" },
+  { value: "paused", label: "В отпуске", helper: "временно, вернётся — не в «Сегодня», но виден в Учениках" },
+  { value: "graduated", label: "Выпускник", helper: "закончил успешно — фильтр «Выпускники» в Учениках" },
+  { value: "dropped", label: "Бросил", helper: "прекратил обучение — фильтр «Бросили» в Учениках" },
+  { value: "archived", label: "Архив", helper: "прочие причины — фильтр «Архив» в Учениках" },
 ];
 
 export function ChangeStatusDialog({

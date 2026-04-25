@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Chip } from "@/components/ui/chip";
 import type { StudentListItem } from "@/lib/repos/students";
 
-type Filter = "all" | "active" | "low" | "paused" | "graduated" | "dropped";
+type Filter = "all" | "active" | "low" | "paused" | "graduated" | "dropped" | "archived";
 
 function fmtDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -31,6 +31,7 @@ export function StudentsList({ students }: { students: StudentListItem[] }) {
   const pausedCount = students.filter((s) => s.status === "paused").length;
   const graduatedCount = students.filter((s) => s.status === "graduated").length;
   const droppedCount = students.filter((s) => s.status === "dropped").length;
+  const archivedCount = students.filter((s) => s.status === "archived").length;
 
   const filtered = useMemo(() => {
     let list = students;
@@ -41,6 +42,7 @@ export function StudentsList({ students }: { students: StudentListItem[] }) {
     if (filter === "paused") list = list.filter((s) => s.status === "paused");
     if (filter === "graduated") list = list.filter((s) => s.status === "graduated");
     if (filter === "dropped") list = list.filter((s) => s.status === "dropped");
+    if (filter === "archived") list = list.filter((s) => s.status === "archived");
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((s) => s.full_name.toLowerCase().includes(q));
     return [...list].sort((a, b) => a.full_name.localeCompare(b.full_name));
@@ -125,6 +127,15 @@ export function StudentsList({ students }: { students: StudentListItem[] }) {
             onClick={() => setFilter("dropped")}
           >
             Бросили
+          </FilterPill>
+        )}
+        {archivedCount > 0 && (
+          <FilterPill
+            active={filter === "archived"}
+            count={archivedCount}
+            onClick={() => setFilter("archived")}
+          >
+            Архив
           </FilterPill>
         )}
       </div>
