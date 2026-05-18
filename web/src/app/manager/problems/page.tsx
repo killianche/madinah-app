@@ -18,7 +18,7 @@ interface Row {
 export const metadata = { title: "Проблемные — Madinah" };
 
 export default async function ProblemsPage() {
-  await requireRole("manager", "curator", "head", "admin");
+  await requireRole("manager", "curator", "head", "director", "admin");
 
   // Композитный score: дни-с-последнего × 0.3 + отмены × 0.5 + (баланс<5) × 10 × 0.2
   const rows = await sql<Row[]>`
@@ -46,7 +46,7 @@ export default async function ProblemsPage() {
         coalesce((current_date - ll.last_date)::int, 90) * 0.3 +
         coalesce(c.cnt, 0) * 0.5 +
         case when s.balance < 5 then 2.0 else 0 end
-      )::float as score
+      ) as score
     from students s
     left join teachers t on t.id = s.teacher_id
     left join last_lesson ll on ll.student_id = s.id

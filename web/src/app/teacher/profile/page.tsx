@@ -2,9 +2,11 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Chip } from "@/components/ui/chip";
+import { WeekStrip } from "@/components/ui/week-strip";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { USER_ROLE_LABEL } from "@/lib/types";
 import { findTeacherByUserId } from "@/lib/repos/teachers";
+import { getTeacherWeekSchedule } from "@/lib/repos/schedules";
 import { getTeacherTotalStats } from "@/lib/repos/lessons";
 import { teacherStudentsNeedTopup } from "@/lib/repos/students";
 
@@ -15,18 +17,20 @@ export default async function Profile() {
   const { user } = await requireAuth();
 
   let teacherData: {
+    weekSlots: { weekday: number; time_at: string }[];
     totals: Awaited<ReturnType<typeof getTeacherTotalStats>> | null;
     needTopup: Awaited<ReturnType<typeof teacherStudentsNeedTopup>>;
-  } = { totals: null, needTopup: [] };
+  } = { weekSlots: [], totals: null, needTopup: [] };
 
   if (user.role === "teacher") {
     const teacher = await findTeacherByUserId(user.id);
     if (teacher) {
-      const [totals, needTopup] = await Promise.all([
+      const [weekSlots, totals, needTopup] = await Promise.all([
+        getTeacherWeekSchedule(teacher.id),
         getTeacherTotalStats(teacher.id),
         teacherStudentsNeedTopup(teacher.id, 10),
       ]);
-      teacherData = { totals, needTopup };
+      teacherData = { weekSlots, totals, needTopup };
     }
   }
 
@@ -91,6 +95,19 @@ export default async function Profile() {
         </div>
       )}
 
+      {/* Мой график недели */}
+      {teacherData.weekSlots.length > 0 && (
+        <div className="mb-[14px]">
+          <div className="flex justify-between items-baseline mb-2">
+            <span className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone">
+              Мой график
+            </span>
+            <span className="text-[12px] text-stone">напоминание</span>
+          </div>
+          <WeekStrip slots={teacherData.weekSlots} />
+        </div>
+      )}
+
       {/* Нужно напомнить пополнить */}
       {teacherData.needTopup.length > 0 && (
         <div className="mb-[14px]">
@@ -127,23 +144,6 @@ export default async function Profile() {
         </div>
       )}
 
-      {/* Администрирование — для head/admin */}
-      {(user.role === "head" || user.role === "admin") && (
-        <div className="mb-[14px]">
-          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
-            Администрирование
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <AdminLink href="/manager/dashboard" title="Обзор" sub="базовые KPI" />
-            <AdminLink href="/manager/staff" title="Сотрудники" sub="создать, выключить" />
-            <AdminLink href="/manager/credentials" title="Пароли учителей" sub="логины и пароли" />
-            {user.role === "admin" && (
-              <AdminLink href="/manager/settings" title="Настройки" sub="ставки школы" />
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Тема */}
       <div className="mb-[14px]">
         <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
@@ -162,23 +162,5 @@ export default async function Profile() {
         </button>
       </form>
     </AppShell>
-  );
-}
-
-function AdminLink({ href, title, sub }: { href: string; title: string; sub: string }) {
-  return (
-    <Link
-      href={href}
-      className="block bg-ivory rounded-[12px] p-3 no-underline text-near-black"
-      style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-    >
-      <div
-        className="font-medium text-[14px] text-near-black"
-        style={{ fontFamily: "'Source Serif 4', Georgia, serif" }}
-      >
-        {title}
-      </div>
-      <div className="text-[11px] text-olive mt-0.5">{sub}</div>
-    </Link>
   );
 }

@@ -15,8 +15,6 @@ import {
   getStudentTeacherBreakdown,
   getStudentStatusHistory,
   getStudentAttention,
-  getLastTeacherChangeNote,
-  getStudentTeacherHistory,
 } from "@/lib/repos/students";
 import { listLessonsForStudent } from "@/lib/repos/lessons";
 import { listTopupsForStudent } from "@/lib/repos/topups";
@@ -29,20 +27,16 @@ import { TeacherBreakdown } from "./teacher-breakdown";
 import { ChangeTeacherDialog } from "./change-teacher-dialog";
 import { ChangeStatusDialog } from "./change-status-dialog";
 import { LessonHistory, type LessonRow } from "./lesson-history";
-import { ScheduleEditClient } from "./schedule-edit-client";
-import { DeleteStudentDialog } from "./delete-student-dialog";
-import { ClaimButton } from "./claim-button";
 
 export const metadata = { title: "Ученик — Madinah" };
 
-const PRIVILEGED_ROLES = ["manager", "curator", "head", "admin"] as const;
+const PRIVILEGED_ROLES = ["manager", "curator", "head", "admin", "director"] as const;
 
 const STATUS_TONE: Record<StudentStatus, "good" | "warn" | "bad" | "neutral"> = {
   active: "good",
   paused: "warn",
   graduated: "neutral",
   dropped: "bad",
-  closed: "neutral",
   archived: "neutral",
 };
 
@@ -77,19 +71,16 @@ export default async function StudentCard({
     auth.user.role,
   );
 
-  const ownTeacher =
-    auth.user.role === "teacher" ? await findTeacherByUserId(auth.user.id) : null;
   if (!isPrivileged) {
+    const ownTeacher = await findTeacherByUserId(auth.user.id);
     if (!ownTeacher || student.teacher_id !== ownTeacher.id) notFound();
   }
 
-  const isManager = auth.user.role === "manager";
   const canChangeTeacher =
+    auth.user.role === "manager" ||
     auth.user.role === "curator" ||
     auth.user.role === "head" ||
     auth.user.role === "admin";
-  const canEdit = canChangeTeacher; // менеджер только смотрит
-  const canDelete = auth.user.role === "head" || auth.user.role === "admin";
 
   const [
     lessons,
@@ -99,8 +90,6 @@ export default async function StudentCard({
     activeTeachers,
     statusHistory,
     attention,
-    lastTeacherNote,
-    teacherHistory,
   ] = await Promise.all([
     listLessonsForStudent(student.id, 500),
     listTopupsForStudent(student.id),
@@ -109,8 +98,6 @@ export default async function StudentCard({
     canChangeTeacher ? findActiveTeachers() : Promise.resolve([]),
     getStudentStatusHistory(student.id),
     getStudentAttention(student.id),
-    getLastTeacherChangeNote(student.id),
-    isPrivileged ? getStudentTeacherHistory(student.id) : Promise.resolve([]),
   ]);
 
   // Метрики: total = conducted + penalty (основные, списанные с баланса).
@@ -128,8 +115,7 @@ export default async function StudentCard({
     conducted + penalty + breakdown.reduce((s, r) => s + r.cancelled_by_student, 0);
   const attendance =
     attendanceBase > 0 ? Math.round((conducted / attendanceBase) * 100) : null;
-  const enrolledAt = student.enrolled_at;
-  const firstLessonDate = breakdown.length
+  const firstDate = breakdown.length
     ? breakdown
         .map((r) => r.first_lesson_date)
         .reduce((a, b) => (new Date(a) < new Date(b) ? a : b))
@@ -139,14 +125,9 @@ export default async function StudentCard({
   const initialName = student.full_name.replace(/[\+\d\s\-\(\)]+$/g, "").trim() || student.full_name;
   const phone = student.phone;
   const tg = student.telegram_username;
-  const tgPhone = student.telegram_phone;
-  const wa = student.whatsapp_phone;
-  const isTeacherRole = auth.user.role === "teacher";
-  const creatorName = student.creator_name ?? null;
 
   const balance = student.balance;
   const balanceColor = balance <= 0 ? "text-crimson" : "text-near-black";
-  const totalTopups = topups.reduce((s, t) => s + (t.lessons_added > 0 ? t.lessons_added : 0), 0);
 
   const lessonsForHistory: LessonRow[] = lessons.map((l) => ({
     id: l.id,
@@ -190,19 +171,19 @@ export default async function StudentCard({
               )}
             </div>
             <div className="text-[13px] text-olive mt-1">
-              {enrolledAt ? `Поступил ${fmtDate(enrolledAt)} · ` : firstLessonDate ? `С ${fmtDate(firstLessonDate)} · ` : ""}
+              {firstDate ? `С ${fmtDate(firstDate)} · ` : ""}
               {daysAgoText(lastLessonDate)}
             </div>
           </div>
         </div>
 
         {/* Contacts */}
-        {(phone || tg || tgPhone) && (
-          <div className="flex gap-2 mt-[14px] flex-wrap">
+        {(phone || tg) && (
+          <div className="flex gap-2 mt-[14px]">
             {phone && (
               <a
                 href={`tel:${phone.replace(/[\s\-\(\)]/g, "")}`}
-                className="flex-1 min-w-[140px] inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline tabular-nums"
+                className="flex-1 inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline tabular-nums"
                 style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -216,7 +197,7 @@ export default async function StudentCard({
                 href={`https://t.me/${tg.replace(/^@/, "")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 min-w-[140px] inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline"
+                className="flex-1 inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline"
                 style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -224,35 +205,6 @@ export default async function StudentCard({
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
                 <span className="truncate">@{tg.replace(/^@/, "")}</span>
-              </a>
-            )}
-            {tgPhone && (
-              <a
-                href={`https://t.me/+${tgPhone.replace(/[^\d]/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 min-w-[140px] inline-flex items-center gap-2 bg-parchment rounded-[10px] px-3 py-[10px] text-[14px] font-medium text-charcoal no-underline tabular-nums"
-                style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-                <span className="truncate">TG · {tgPhone}</span>
-              </a>
-            )}
-            {wa && (
-              <a
-                href={`https://wa.me/${wa.replace(/[^\d]/g, "")}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 min-w-[140px] inline-flex items-center gap-2 rounded-[10px] px-3 py-[10px] text-[14px] font-medium no-underline tabular-nums"
-                style={{ background: "#e7f5ea", color: "#1f7a3a", boxShadow: "inset 0 0 0 1px #c8e6d0" }}
-              >
-                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
-                  <path d="M20.52 3.48A11.94 11.94 0 0 0 12.05 0C5.55 0 .26 5.29.26 11.79c0 2.08.54 4.11 1.57 5.9L0 24l6.47-1.7a11.78 11.78 0 0 0 5.58 1.42h.01c6.5 0 11.79-5.29 11.79-11.79 0-3.15-1.23-6.11-3.33-8.45zM12.06 21.7h-.01a9.83 9.83 0 0 1-5.01-1.37l-.36-.21-3.84 1.01 1.03-3.74-.24-.39a9.85 9.85 0 0 1-1.51-5.21c0-5.43 4.42-9.85 9.86-9.85 2.63 0 5.1 1.03 6.97 2.89a9.81 9.81 0 0 1 2.88 6.96c0 5.43-4.42 9.85-9.85 9.85zm5.4-7.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.66.15-.2.3-.76.96-.93 1.16-.17.2-.34.22-.64.07-.3-.15-1.25-.46-2.39-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.13.3-.34.45-.51.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.66-1.6-.91-2.18-.24-.57-.49-.5-.66-.5-.17-.01-.37-.01-.57-.01-.2 0-.5.07-.77.37-.27.3-1.02.99-1.02 2.42 0 1.43 1.04 2.81 1.19 3.01.15.2 2.05 3.13 4.97 4.39.69.3 1.24.48 1.66.61.7.22 1.33.19 1.83.12.56-.08 1.75-.71 2-1.4.25-.69.25-1.28.17-1.4-.07-.13-.27-.2-.57-.35z"/>
-                </svg>
-                <span className="truncate">WhatsApp</span>
               </a>
             )}
           </div>
@@ -270,22 +222,6 @@ export default async function StudentCard({
           </div>
         )}
       </section>
-
-      {/* PREV TEACHER NOTE — Д2/П5 */}
-      {lastTeacherNote && lastTeacherNote.reason && (
-        <section className="bg-warm-sand rounded-[14px] p-4 mb-[14px]">
-          <div className="text-[11px] uppercase tracking-[0.6px] font-medium text-stone mb-1">
-            Заметка при смене учителя · {fmtDate(lastTeacherNote.changed_at)}
-          </div>
-          <div className="text-[13px] text-near-black">{lastTeacherNote.reason}</div>
-          {(lastTeacherNote.old_teacher_name || lastTeacherNote.new_teacher_name) && (
-            <div className="text-[11px] text-olive mt-1">
-              {lastTeacherNote.old_teacher_name ?? "?"} → {lastTeacherNote.new_teacher_name ?? "?"}
-              {lastTeacherNote.actor_name ? ` · ${lastTeacherNote.actor_name}` : ""}
-            </div>
-          )}
-        </section>
-      )}
 
       {/* METRICS 2x2 */}
       <div className="grid grid-cols-2 gap-[10px] mb-[14px]">
@@ -320,17 +256,6 @@ export default async function StudentCard({
             {balance}
           </div>
           <div className="text-[11px] text-olive mt-1">уроков осталось</div>
-          {totalTopups > 0 && (
-            <div className="text-[11px] text-olive mt-0.5 tabular-nums">
-              внесено всего {totalTopups}
-            </div>
-          )}
-          <Link
-            href={`/teacher/student/${student.id}/adjust`}
-            className="inline-block mt-2 text-[12px] font-medium text-terracotta no-underline"
-          >
-            Скорректировать →
-          </Link>
         </div>
 
         {/* Засчитано (conducted + penalty) */}
@@ -363,54 +288,46 @@ export default async function StudentCard({
         </div>
       </div>
 
-      {/* ACTIONS grid — только если есть права */}
-      {!isManager && (
-        <div
-          className={`grid gap-2 mb-[22px] ${isTeacherRole ? "grid-cols-3" : "grid-cols-2"}`}
+      {/* ACTIONS grid */}
+      <div className="grid grid-cols-3 gap-2 mb-[22px]">
+        <Link
+          href={`/teacher/lesson/new?student=${student.id}`}
+          className="inline-flex flex-col items-center justify-center gap-1 bg-terracotta text-ivory rounded-[12px] py-3 no-underline font-medium text-[13px]"
         >
-          {isTeacherRole && (
-            <Link
-              href={`/teacher/lesson/new?student=${student.id}`}
-              className="inline-flex flex-col items-center justify-center gap-1 bg-terracotta text-ivory rounded-[12px] py-3 no-underline font-medium text-[13px]"
-            >
-              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span>Записать</span>
-            </Link>
-          )}
-          <Link
-            href={`/teacher/student/${student.id}/topup`}
-            className="inline-flex flex-col items-center justify-center gap-1 bg-ivory rounded-[12px] py-3 no-underline font-medium text-[13px] text-charcoal"
-            style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 12V8H6a2 2 0 0 1 0-4h12v4" />
-              <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
-              <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
-            </svg>
-            <span>Пополнить</span>
-          </Link>
-          <ChangeStatusDialog
-            studentId={student.id}
-            currentStatus={student.status}
-          />
-        </div>
-      )}
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>Записать</span>
+        </Link>
+        <Link
+          href={`/teacher/student/${student.id}/topup`}
+          className="inline-flex flex-col items-center justify-center gap-1 bg-ivory rounded-[12px] py-3 no-underline font-medium text-[13px] text-charcoal"
+          style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 12V8H6a2 2 0 0 1 0-4h12v4" />
+            <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
+            <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+          </svg>
+          <span>Пополнить</span>
+        </Link>
+        <ChangeStatusDialog
+          studentId={student.id}
+          currentStatus={student.status}
+        />
+      </div>
 
-      {(canChangeTeacher || isTeacherRole) && (
+      {canChangeTeacher && (
         <div className="mb-[22px] flex flex-wrap gap-2">
-          {canChangeTeacher && (
-            <ChangeTeacherDialog
-              studentId={student.id}
-              currentTeacherId={student.teacher_id}
-              teachers={activeTeachers.map((t) => ({
-                id: t.id,
-                full_name: t.full_name,
-              }))}
-            />
-          )}
+          <ChangeTeacherDialog
+            studentId={student.id}
+            currentTeacherId={student.teacher_id}
+            teachers={activeTeachers.map((t) => ({
+              id: t.id,
+              full_name: t.full_name,
+            }))}
+          />
           <Link
             href={`/teacher/student/${student.id}/edit`}
             className="inline-flex items-center gap-2 px-4 py-[10px] rounded-[12px] font-medium text-charcoal no-underline"
@@ -418,45 +335,22 @@ export default async function StudentCard({
           >
             Редактировать профиль
           </Link>
-          {canDelete && (
-            <DeleteStudentDialog
-              studentId={student.id}
-              studentName={initialName}
-            />
-          )}
         </div>
       )}
 
-      {/* SCHEDULE — decorative + edit */}
-      <section className="mb-[22px]">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone">
+      {/* SCHEDULE — decorative */}
+      {schedules.length > 0 && (
+        <section className="mb-[22px]">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
             Расписание · напоминание
           </div>
-          {(canEdit || isTeacherRole) && (
-            <ScheduleEditClient
-              studentId={student.id}
-              initialSlots={schedules
-                .filter((s) => s.active)
-                .map((s) => ({ weekday: s.weekday, time_at: s.time_at }))}
-            />
-          )}
-        </div>
-        {schedules.filter((s) => s.active).length > 0 ? (
           <WeekStrip
             slots={schedules
               .filter((s) => s.active)
               .map((s) => ({ weekday: s.weekday, time_at: s.time_at }))}
           />
-        ) : (
-          <div
-            className="bg-ivory rounded-[14px] py-6 text-center"
-            style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-          >
-            <p className="text-olive text-[13px]">Расписание не задано.</p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* TEACHER HISTORY */}
       {breakdown.length > 0 && (
@@ -468,30 +362,6 @@ export default async function StudentCard({
             stats={breakdown}
             currentTeacherId={student.teacher_id}
           />
-        </section>
-      )}
-
-      {/* TEACHER CHANGE HISTORY (curators+) — П7 */}
-      {isPrivileged && teacherHistory.length > 0 && (
-        <section className="mb-[22px]">
-          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
-            Смены учителя · {teacherHistory.length}
-          </div>
-          <div className="bg-ivory rounded-[14px] overflow-hidden" style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}>
-            {teacherHistory.map((h, i) => (
-              <div key={i} className={`p-3 ${i > 0 ? "border-t border-[#ece9dd]" : ""}`}>
-                <div className="text-[11px] uppercase tracking-[0.6px] font-medium text-stone tabular-nums">
-                  {fmtDate(h.changed_at)} · {h.actor_name ?? "—"}
-                </div>
-                <div className="text-[13px] text-near-black mt-0.5">
-                  {h.old_teacher_name ?? "—"} → {h.new_teacher_name ?? "—"}
-                </div>
-                {h.reason && (
-                  <div className="text-[12px] text-olive mt-1">{h.reason}</div>
-                )}
-              </div>
-            ))}
-          </div>
         </section>
       )}
 
@@ -541,24 +411,7 @@ export default async function StudentCard({
           <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
             История уроков
           </div>
-          <LessonHistory
-            lessons={lessonsForHistory}
-            canEdit={canEdit || isTeacherRole}
-            // Учителю — только его последний урок с этим учеником.
-            // Куратору+ — undefined = все доступны.
-            editableLessonIds={
-              isTeacherRole && ownTeacher
-                ? (() => {
-                    const myLessons = lessons.filter(
-                      (l) => l.teacher_id === ownTeacher.id,
-                    );
-                    // Последний по lesson_date (история отсортирована desc — берём первый матч).
-                    const last = myLessons[0];
-                    return last ? [last.id] : [];
-                  })()
-                : undefined
-            }
-          />
+          <LessonHistory lessons={lessonsForHistory} />
         </section>
       )}
 
@@ -566,7 +419,7 @@ export default async function StudentCard({
       {topups.length > 0 && (
         <section>
           <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-3">
-            История баланса
+            Пополнения
           </div>
           <div className="bg-ivory rounded-[14px] shadow-ring px-4">
             {topups.map((t, i) => (
@@ -577,18 +430,17 @@ export default async function StudentCard({
                 }`}
               >
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-medium text-[13px] shrink-0"
-                  style={
-                    t.lessons_added > 0
-                      ? { background: "rgba(63,107,61,0.10)", color: "#3f6b3d" }
-                      : { background: "rgba(185,28,28,0.08)", color: "#b91c1c" }
-                  }
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-medium text-[13px]"
+                  style={{
+                    background: "rgba(63,107,61,0.10)",
+                    color: "#3f6b3d",
+                  }}
                 >
-                  {t.lessons_added > 0 ? `+${t.lessons_added}` : t.lessons_added}
+                  +{t.lessons_added}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-medium">
-                    {t.reason ?? (t.lessons_added > 0 ? "Пополнение" : "Коррекция")}
+                    {t.reason ?? "Пополнение"}
                   </div>
                   <div className="text-[12px] text-olive tabular-nums">
                     {t.added_by_name ?? "—"} ·{" "}
@@ -600,34 +452,6 @@ export default async function StudentCard({
           </div>
         </section>
       )}
-
-      {/* Создатель (менеджер) — мелким, в самом низу */}
-      <div className="mt-6 text-center text-[11px] text-stone/70 flex items-center justify-center gap-2 flex-wrap">
-        {creatorName ? (
-          <>
-            <span>Менеджер: {creatorName}</span>
-            {(auth.user.role === "manager" ||
-              auth.user.role === "curator" ||
-              auth.user.role === "head" ||
-              auth.user.role === "admin") && (
-              <ClaimButton
-                studentId={student.id}
-                alreadyMine={student.created_by_user_id === auth.user.id}
-              />
-            )}
-          </>
-        ) : (
-          (auth.user.role === "manager" ||
-            auth.user.role === "curator" ||
-            auth.user.role === "head" ||
-            auth.user.role === "admin") && (
-            <>
-              <span>Менеджер не назначен</span>
-              <ClaimButton studentId={student.id} alreadyMine={false} />
-            </>
-          )
-        )}
-      </div>
     </AppShell>
   );
 }

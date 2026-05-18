@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { requireAuth } from "@/lib/auth/session";
+import { requireRole } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
-import { findStudentById, assertTeacherOwnsStudent } from "@/lib/repos/students";
+import { findStudentById } from "@/lib/repos/students";
 import { EditStudentForm } from "./form";
 
 export const metadata = { title: "Редактировать ученика — Madinah" };
@@ -12,19 +12,10 @@ export default async function EditStudentPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { user } = await requireAuth();
+  await requireRole("manager", "curator", "head", "admin");
   const { id } = await params;
   const student = await findStudentById(id);
   if (!student) notFound();
-
-  // Учитель может редактировать только своего ученика. Остальные роли — любого.
-  if (user.role === "teacher") {
-    try {
-      await assertTeacherOwnsStudent(user.id, id);
-    } catch {
-      notFound();
-    }
-  }
 
   return (
     <AppShell
@@ -37,8 +28,6 @@ export default async function EditStudentPage({
           full_name: student.full_name,
           phone: student.phone,
           telegram_username: student.telegram_username,
-          telegram_phone: student.telegram_phone,
-          whatsapp_phone: student.whatsapp_phone,
           is_charity: student.is_charity,
           charity_note: student.charity_note,
         }}

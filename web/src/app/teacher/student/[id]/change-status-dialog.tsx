@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useOptimistic } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { StudentStatus } from "@/lib/types";
@@ -16,7 +16,6 @@ const STATUSES: {
   { value: "paused", label: "В отпуске", helper: "временно, вернётся — не в «Сегодня», но виден в Учениках" },
   { value: "graduated", label: "Выпускник", helper: "закончил успешно — фильтр «Выпускники» в Учениках" },
   { value: "dropped", label: "Бросил", helper: "прекратил обучение — фильтр «Бросили» в Учениках" },
-  { value: "closed", label: "Закрыт", helper: "связались, не вернулся — больше не появляется во «Внимании»" },
   { value: "archived", label: "Архив", helper: "прочие причины — фильтр «Архив» в Учениках" },
 ];
 
@@ -29,14 +28,6 @@ export function ChangeStatusDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [committedStatus, setCommittedStatus] = useState<StudentStatus>(currentStatus);
-  // useOptimistic — статус меняется мгновенно в UI, до ответа сервера. Если сервер вернёт
-  // ошибку, не вызываем setCommittedStatus — оптимистичное значение откатывается на
-  // следующий рендер автоматически.
-  const [localStatus, setOptimisticStatus] = useOptimistic<StudentStatus, StudentStatus>(
-    committedStatus,
-    (_curr, next) => next,
-  );
   const [selected, setSelected] = useState<StudentStatus>(currentStatus);
   const [reason, setReason] = useState("");
   const [pending, startTransition] = useTransition();
@@ -44,36 +35,29 @@ export function ChangeStatusDialog({
 
   function close() {
     setOpen(false);
-    setSelected(localStatus);
+    setSelected(currentStatus);
     setReason("");
     setError(undefined);
   }
 
   function submit() {
-    if (selected === localStatus) {
+    if (selected === currentStatus) {
       setError("Это уже текущий статус");
       return;
     }
     setError(undefined);
     startTransition(async () => {
-      // Мгновенно показываем новый статус в UI и закрываем диалог.
-      setOptimisticStatus(selected);
-      setOpen(false);
       const res = await changeStatusAction({
         student_id: studentId,
         new_status: selected,
         reason: reason.trim() || null,
       });
-      if (!res.ok) {
+      if (res.ok) {
+        close();
+        router.refresh();
+      } else {
         setError(res.error);
-        // Откатить optimistic — снова открыть диалог чтобы юзер увидел ошибку.
-        setOpen(true);
-        return;
       }
-      // Коммитим — теперь это реальное состояние.
-      setCommittedStatus(selected);
-      setReason("");
-      router.refresh();
     });
   }
 
@@ -84,7 +68,7 @@ export function ChangeStatusDialog({
         onClick={() => setOpen(true)}
         className="btn-secondary"
       >
-        Статус: {STUDENT_STATUS_LABEL[localStatus]}
+        Статус: {STUDENT_STATUS_LABEL[currentStatus]}
       </button>
 
       {open && (

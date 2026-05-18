@@ -140,14 +140,6 @@ export function ChangeTeacherDialog({
               />
             </div>
 
-            <div
-              className="text-[12px] text-olive bg-warm-sand rounded-[8px] px-3 py-2"
-              style={{ boxShadow: "inset 0 0 0 1px #ece9dd" }}
-            >
-              История уроков и запланированные слоты остаются на прежнем учителе —
-              новый учитель не унаследует расписание автоматически.
-            </div>
-
             {error && <p className="text-sm text-terracotta">{error}</p>}
 
             <div className="flex gap-2 justify-end">

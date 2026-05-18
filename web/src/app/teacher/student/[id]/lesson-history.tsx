@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { Chip } from "@/components/ui/chip";
 import type { LessonStatus } from "@/lib/types";
 import { LESSON_STATUS_LABEL } from "@/lib/types";
@@ -47,16 +46,7 @@ function statusChip(status: LessonStatus) {
   );
 }
 
-export function LessonHistory({
-  lessons,
-  canEdit = false,
-  editableLessonIds,
-}: {
-  lessons: LessonRow[];
-  canEdit?: boolean;
-  /** Если задан — кнопки edit показываются только у этих lesson.id (для учителя — его последний с этим учеником). undefined = показывать у всех при canEdit. */
-  editableLessonIds?: string[];
-}) {
+export function LessonHistory({ lessons }: { lessons: LessonRow[] }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [limit, setLimit] = useState(20);
 
@@ -118,12 +108,8 @@ export function LessonHistory({
                 i > 0 ? "border-t border-border-cream" : ""
               }`}
             >
-              <span
-                className={`font-serif text-[20px] tabular-nums ${
-                  l.ordinal > 0 ? "text-near-black" : "text-stone"
-                }`}
-              >
-                {l.ordinal > 0 ? `#${l.ordinal}` : "—"}
+              <span className="font-serif text-[20px] tabular-nums text-near-black">
+                #{l.ordinal}
               </span>
               <div className="min-w-0">
                 <div className="font-medium text-[15px] tabular-nums">
@@ -134,21 +120,7 @@ export function LessonHistory({
                   {l.topic ? ` · ${l.topic}` : ""}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {statusChip(l.status)}
-                {canEdit &&
-                  (editableLessonIds === undefined ||
-                    editableLessonIds.includes(l.id)) && (
-                  <Link
-                    href={`/teacher/lesson/${l.id}/edit`}
-                    className="text-[12px] text-stone hover:text-near-black px-2 py-1 rounded-[8px] no-underline"
-                    style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
-                    aria-label="Редактировать"
-                  >
-                    ✎
-                  </Link>
-                )}
-              </div>
+              {statusChip(l.status)}
             </div>
           ))}
           {filtered.length > limit && (

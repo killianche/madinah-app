@@ -14,8 +14,6 @@ export function EditStudentForm({
     full_name: string;
     phone: string | null;
     telegram_username: string | null;
-    telegram_phone: string | null;
-    whatsapp_phone: string | null;
     is_charity: boolean;
     charity_note: string | null;
   };
@@ -26,14 +24,6 @@ export function EditStudentForm({
   const [fullName, setFullName] = useState(initial.full_name);
   const [phone, setPhone] = useState(initial.phone ?? "");
   const [tg, setTg] = useState(initial.telegram_username ?? "");
-  const [tgPhone, setTgPhone] = useState(initial.telegram_phone ?? "");
-  const [tgSameAsPhone, setTgSameAsPhone] = useState(
-    !!initial.telegram_phone && initial.telegram_phone === initial.phone,
-  );
-  const [wa, setWa] = useState(initial.whatsapp_phone ?? "");
-  const [waSameAsPhone, setWaSameAsPhone] = useState(
-    !!initial.whatsapp_phone && initial.whatsapp_phone === initial.phone,
-  );
   const [charity, setCharity] = useState(initial.is_charity);
   const [note, setNote] = useState(initial.charity_note ?? "");
 
@@ -44,9 +34,7 @@ export function EditStudentForm({
         student_id: id,
         full_name: fullName,
         phone: phone || null,
-        telegram_username: tg.replace(/^@/, "") || null,
-        telegram_phone: tgSameAsPhone ? phone || null : tgPhone || null,
-        whatsapp_phone: waSameAsPhone ? phone || null : wa || null,
+        telegram_username: tg || null,
         is_charity: charity,
         charity_note: charity ? note || null : null,
       });
@@ -83,63 +71,18 @@ export function EditStudentForm({
         />
       </Field>
 
-      <Field label="Telegram username">
+      <Field label="Telegram">
         <input
           type="text"
           value={tg}
           onChange={(e) => setTg(e.target.value)}
-          placeholder="username (без @)"
+          placeholder="@username"
           className="input-field"
         />
       </Field>
 
-      <Field label="Telegram номер">
-        <div className="flex flex-col gap-2">
-          <input
-            type="tel"
-            value={tgSameAsPhone ? phone : tgPhone}
-            onChange={(e) => setTgPhone(e.target.value)}
-            disabled={tgSameAsPhone}
-            placeholder="+7..."
-            className="input-field"
-          />
-          <label className="flex items-center gap-2 text-[13px] cursor-pointer text-olive">
-            <input
-              type="checkbox"
-              checked={tgSameAsPhone}
-              onChange={(e) => setTgSameAsPhone(e.target.checked)}
-              className="accent-terracotta"
-            />
-            <span>тот же что основной</span>
-          </label>
-        </div>
-      </Field>
-
-      <Field label="WhatsApp номер">
-        <div className="flex flex-col gap-2">
-          <input
-            type="tel"
-            value={waSameAsPhone ? phone : wa}
-            onChange={(e) => setWa(e.target.value)}
-            disabled={waSameAsPhone}
-            placeholder="+7..."
-            className="input-field"
-          />
-          <label className="flex items-center gap-2 text-[13px] cursor-pointer text-olive">
-            <input
-              type="checkbox"
-              checked={waSameAsPhone}
-              onChange={(e) => setWaSameAsPhone(e.target.checked)}
-              className="accent-terracotta"
-            />
-            <span>тот же что основной</span>
-          </label>
-        </div>
-      </Field>
-
       <div>
-        <label
-          className="flex items-start gap-3 p-3 rounded-[12px] bg-ivory cursor-pointer"
+        <label className="flex items-start gap-3 p-3 rounded-[12px] bg-ivory cursor-pointer"
           style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
         >
           <input
@@ -150,7 +93,9 @@ export function EditStudentForm({
           />
           <div>
             <div className="text-[15px] font-medium">Благотворительный ученик</div>
-            <div className="text-[12px] text-olive mt-0.5">учится бесплатно, балансы не трогаем</div>
+            <div className="text-[12px] text-olive mt-0.5">
+              учится бесплатно, балансы не трогаем
+            </div>
           </div>
         </label>
         {charity && (
@@ -187,7 +132,7 @@ export function EditStudentForm({
         </button>
       </div>
 
-      <style>{`.input-field{width:100%;background:#faf9f5;border-radius:12px;padding:12px 16px;font-size:15px;color:#141413;border:0;outline:0;box-shadow:inset 0 0 0 1px #f0eee6}.input-field:focus{box-shadow:inset 0 0 0 1px #e8e6dc, 0 0 0 3px rgba(56,152,236,0.25)}.input-field:disabled{opacity:.55;cursor:not-allowed}`}</style>
+      <style>{`.input-field{width:100%;background:#faf9f5;border-radius:12px;padding:12px 16px;font-size:15px;color:#141413;border:0;outline:0;box-shadow:inset 0 0 0 1px #f0eee6}.input-field:focus{box-shadow:inset 0 0 0 1px #e8e6dc, 0 0 0 3px rgba(56,152,236,0.25)}`}</style>
     </form>
   );
 }
@@ -195,7 +140,9 @@ export function EditStudentForm({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[0.6px] font-medium text-stone mb-2">{label}</div>
+      <div className="text-[11px] uppercase tracking-[0.6px] font-medium text-stone mb-2">
+        {label}
+      </div>
       {children}
     </div>
   );

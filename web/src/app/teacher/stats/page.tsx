@@ -9,12 +9,13 @@ import {
   getTeacherMonthlyStats,
   getTeacherTotalStats,
   getTeacherTopStudents,
+  listLessonsForTeacher,
   getTeacherDailyLessons,
   getTeacherDailyAverage,
   getTeacherStreak,
   getTeacherSchoolRank,
-  getTeacherTodayYesterday,
 } from "@/lib/repos/lessons";
+import { LESSON_STATUS_LABEL, type LessonStatus } from "@/lib/types";
 
 export const metadata = { title: "Статистика — Madinah" };
 export const dynamic = "force-dynamic";
@@ -42,34 +43,29 @@ function monthsBetween(d: Date): number {
   );
 }
 
+function statusChip(status: LessonStatus) {
+  if (status === "conducted") return <Chip tone="good" size="s">проведён</Chip>;
+  if (status === "penalty") return <Chip tone="bad" size="s">штраф</Chip>;
+  return <Chip tone="warn" size="s">{LESSON_STATUS_LABEL[status]}</Chip>;
+}
+
 export default async function TeacherStats() {
   const { user } = await requireRole("teacher");
   const teacher = await findTeacherByUserId(user.id);
   if (!teacher) notFound();
 
   const now = new Date();
-  const [monthly, totals, topStudents, dailyNow, dailyAvg, streak, rank, todayYesterday] =
+  const [monthly, totals, topStudents, recentLessons, dailyNow, dailyAvg, streak, rank] =
     await Promise.all([
       getTeacherMonthlyStats(teacher.id, 24),
       getTeacherTotalStats(teacher.id),
       getTeacherTopStudents(teacher.id, 10),
+      listLessonsForTeacher(teacher.id, 10),
       getTeacherDailyLessons(teacher.id, now.getFullYear(), now.getMonth() + 1),
       getTeacherDailyAverage(teacher.id, 30),
       getTeacherStreak(teacher.id),
       getTeacherSchoolRank(teacher.id),
-      getTeacherTodayYesterday(teacher.id),
     ]);
-
-  const todayKey = new Date().toLocaleDateString("sv-SE");
-  const yKey = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toLocaleDateString("sv-SE");
-  })();
-  const today = todayYesterday.find((r) => r.date === todayKey);
-  const yesterday = todayYesterday.find((r) => r.date === yKey);
-  const todayCount = (today?.conducted ?? 0) + (today?.penalty ?? 0);
-  const yCount = (yesterday?.conducted ?? 0) + (yesterday?.penalty ?? 0);
 
   // массив 1..N дней для спарклайна
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -83,10 +79,7 @@ export default async function TeacherStats() {
 
   const heroMonth = monthly[0];
   const prevMonth = monthly[1];
-  // Считаем только засчитанные (conducted+penalty) — отмены не учитываются.
-  const counted = (m: typeof heroMonth) => (m ? m.conducted + m.penalty : 0);
-  const deltaLessons =
-    heroMonth && prevMonth ? counted(heroMonth) - counted(prevMonth) : null;
+  const deltaLessons = heroMonth && prevMonth ? heroMonth.total - prevMonth.total : null;
   const pastMonths = monthly.slice(1, 7);
 
   const experienceMonths = totals.first_lesson_date
@@ -98,77 +91,6 @@ export default async function TeacherStats() {
 
   return (
     <AppShell title="Статистика">
-      {/* Сегодня / Вчера */}
-      <div
-        className="bg-ivory rounded-[16px] p-[18px] mb-[14px]"
-        style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-2">
-              Сегодня
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-serif text-[36px] font-medium tabular-nums leading-none">
-                {todayCount}
-              </span>
-              {todayCount > 0 && (
-                <span className="text-[12px] text-olive">
-                  {todayCount === 1 ? "урок" : todayCount < 5 ? "урока" : "уроков"}
-                </span>
-              )}
-            </div>
-            <div className="text-[12px] text-olive tabular-nums mt-2 flex gap-2 flex-wrap">
-              {today && today.conducted > 0 && <span>провёл {today.conducted}</span>}
-              {today && today.penalty > 0 && (
-                <>
-                  <span className="text-stone">·</span>
-                  <span>штраф {today.penalty}</span>
-                </>
-              )}
-              {today && today.cancelled > 0 && (
-                <>
-                  <span className="text-stone">·</span>
-                  <span>отм. {today.cancelled}</span>
-                </>
-              )}
-              {!today && <span className="text-stone">пока ничего</span>}
-            </div>
-          </div>
-          <div className="border-l border-border-cream pl-3">
-            <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mb-2">
-              Вчера
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-serif text-[36px] font-medium tabular-nums leading-none text-charcoal">
-                {yCount}
-              </span>
-              {yCount > 0 && (
-                <span className="text-[12px] text-olive">
-                  {yCount === 1 ? "урок" : yCount < 5 ? "урока" : "уроков"}
-                </span>
-              )}
-            </div>
-            <div className="text-[12px] text-olive tabular-nums mt-2 flex gap-2 flex-wrap">
-              {yesterday && yesterday.conducted > 0 && <span>провёл {yesterday.conducted}</span>}
-              {yesterday && yesterday.penalty > 0 && (
-                <>
-                  <span className="text-stone">·</span>
-                  <span>штраф {yesterday.penalty}</span>
-                </>
-              )}
-              {yesterday && yesterday.cancelled > 0 && (
-                <>
-                  <span className="text-stone">·</span>
-                  <span>отм. {yesterday.cancelled}</span>
-                </>
-              )}
-              {!yesterday && <span className="text-stone">было тихо</span>}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Quick stats row */}
       <div className="grid grid-cols-3 gap-[10px] mb-[14px]">
         <div className="bg-ivory rounded-[14px] shadow-ring p-[14px]">
@@ -289,7 +211,7 @@ export default async function TeacherStats() {
             >
               <div>
                 <div className="font-serif text-[32px] font-medium leading-none tabular-nums tracking-[-0.4px]">
-                  {heroMonth.conducted + heroMonth.penalty}
+                  {heroMonth.total}
                 </div>
                 <div className="text-[13px] text-olive mt-1">уроков</div>
               </div>
@@ -336,16 +258,10 @@ export default async function TeacherStats() {
                           <span>штраф {m.penalty}</span>
                         </>
                       )}
-                      {(m.cancelled_by_student + m.cancelled_by_teacher) > 0 && (
-                        <>
-                          <span>·</span>
-                          <span>отм. {m.cancelled_by_student + m.cancelled_by_teacher}</span>
-                        </>
-                      )}
                     </div>
                   </div>
                   <div className="font-serif text-[20px] font-medium tabular-nums">
-                    {m.conducted + m.penalty}
+                    {m.total}
                   </div>
                 </div>
               ))}
@@ -384,13 +300,12 @@ export default async function TeacherStats() {
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-serif text-[20px] font-medium tabular-nums leading-none">
-                    {s.months_with_teacher}
-                  </div>
-                  <div className="text-[10px] uppercase tracking-[0.6px] font-medium text-stone mt-1">
-                    {s.months_with_teacher === 1 ? "мес." : "мес."}
-                  </div>
+                <div
+                  className={`font-serif text-[20px] font-medium tabular-nums ${
+                    s.balance <= 0 ? "text-crimson" : ""
+                  }`}
+                >
+                  {s.balance}
                 </div>
               </Link>
             ))}

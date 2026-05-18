@@ -1,47 +1,42 @@
 import Link from "next/link";
+import type { AgendaItem } from "@/lib/repos/schedules";
 import type { LessonListItem } from "@/lib/repos/lessons";
-import type { UpcomingSlot } from "@/lib/repos/schedules";
 import type { LessonStatus } from "@/lib/types";
 import { LESSON_STATUS_LABEL } from "@/lib/types";
 import { Chip } from "@/components/ui/chip";
 
-const WD_SHORT = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
-const MONTHS_GEN = [
-  "января", "февраля", "марта", "апреля", "мая", "июня",
-  "июля", "августа", "сентября", "октября", "ноября", "декабря",
-];
-
-function todayISO(): string {
-  return new Date().toLocaleDateString("sv-SE");
+function fmtShortDate(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
 
-function shiftDate(iso: string, days: number): string {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function dateLabel(iso: string): string {
-  const today = todayISO();
-  if (iso === today) return "сегодня";
-  if (iso === shiftDate(today, 1)) return "завтра";
-  if (iso === shiftDate(today, -1)) return "вчера";
-  const d = new Date(iso);
-  return `${WD_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
-}
-
-function relativeUpcoming(iso: string, slotTime: string): string | null {
-  if (iso !== todayISO()) return null;
-  const [h, m] = slotTime.split(":").map(Number);
-  if (h === undefined || m === undefined) return null;
+/**
+ * Повестка дня учителя — БЕЗ кнопок.
+ * Слоты — только напоминание. Записать урок можно через FAB + снизу.
+ */
+function relativeTime(slotTime: string, forDate: string): string | null {
+  const today = new Date().toLocaleDateString("sv-SE");
+  if (forDate !== today) return null;
+  const parts = slotTime.split(":").map(Number);
+  const h = parts[0];
+  const m = parts[1];
+  if (h === undefined || m === undefined || isNaN(h) || isNaN(m)) return null;
   const now = new Date();
   const slot = new Date();
   slot.setHours(h, m, 0, 0);
   const diffMin = Math.round((slot.getTime() - now.getTime()) / 60000);
-  if (diffMin <= 0) return null;
-  if (diffMin < 60) return `через ${diffMin} мин`;
-  const hours = Math.floor(diffMin / 60);
-  if (hours < 8) return `через ${hours} ч`;
+  if (diffMin >= -30 && diffMin <= 30 && diffMin !== 0) {
+    if (diffMin < 0 && diffMin > -60) return "идёт сейчас";
+    if (diffMin > 0 && diffMin < 60) return `через ${diffMin} мин`;
+  }
+  if (diffMin > 60 && diffMin < 480) {
+    const hours = Math.floor(diffMin / 60);
+    return `через ${hours} ч`;
+  }
+  if (diffMin <= -60 && diffMin > -240) {
+    const hours = Math.floor(-diffMin / 60);
+    return `был ${hours} ч назад`;
+  }
   return null;
 }
 
@@ -51,130 +46,122 @@ function statusChip(status: LessonStatus) {
   return <Chip tone="amber" size="s">{LESSON_STATUS_LABEL[status]}</Chip>;
 }
 
-function StatusDot({ tone }: { tone: "good" | "bad" | "warn" | "muted" }) {
-  const color =
-    tone === "good" ? "#3f6b3d" :
-    tone === "bad" ? "#b53333" :
-    tone === "warn" ? "#c96442" :
-    "#bdb9a8";
-  return <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />;
-}
-
-interface Item {
-  key: string;
-  isPast: boolean;
-  iso: string;
-  slot_time: string;
-  student_id: string;
-  student_name: string;
-  student_balance?: number;
-  status?: LessonStatus;
-  lesson_id?: string;
-}
-
-/**
- * Расписание: 2 прошедших урока + 6 предстоящих слотов, в хронологическом порядке.
- * Кросс-дневное — не зависит от выбранной даты.
- */
 export function TodayAgenda({
-  pastLessons,
-  upcomingSlots,
+  agenda,
+  date,
+  recentLessons = [],
 }: {
-  pastLessons: LessonListItem[];
-  upcomingSlots: UpcomingSlot[];
+  agenda: AgendaItem[];
+  date: string;
+  recentLessons?: LessonListItem[];
 }) {
-  // Past: уже отсортированы DESC. Берём 2 свежих, разворачиваем чтобы старший был сверху.
-  const past: Item[] = pastLessons.slice(0, 2).slice().reverse().map((l) => ({
-    key: `p-${l.id}`,
-    isPast: true,
-    iso: new Date(l.lesson_date).toLocaleDateString("sv-SE"),
-    slot_time: l.lesson_time ?? "—",
-    student_id: l.student_id,
-    student_name: l.student_name,
-    status: l.status,
-    lesson_id: l.id,
-  }));
-
-  const upcoming: Item[] = upcomingSlots.map((s) => ({
-    key: `u-${s.student_id}-${s.lesson_date}-${s.slot_time}`,
-    isPast: false,
-    iso: s.lesson_date,
-    slot_time: s.slot_time,
-    student_id: s.student_id,
-    student_name: s.student_name,
-    student_balance: s.student_balance,
-  }));
-
-  const items = [...past, ...upcoming];
-  const isEmpty = items.length === 0;
+  const scheduled = agenda.filter((a) => a.kind === "scheduled");
+  const done = agenda.filter((a) => a.kind === "lesson");
+  const conducted = done.filter((a) => a.lesson_status === "conducted").length;
+  const penalty = done.filter((a) => a.lesson_status === "penalty").length;
+  const cancelled = done.length - conducted - penalty;
+  const counted = conducted + penalty; // засчитано с баланса
+  const total = done.length;
 
   return (
     <section className="mb-6">
-      <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
-        Расписание
-      </div>
-
-      {isEmpty ? (
+      {/* Счётчик проведённых за день — без планов, только факты */}
+      {total > 0 && (
         <div
-          className="bg-ivory rounded-[14px] py-10 text-center"
+          className="bg-ivory rounded-[16px] p-5 mb-4"
           style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
         >
-          <p className="text-olive">Уроков нет.</p>
-        </div>
-      ) : (
-        <div
-          className="bg-ivory rounded-[14px] px-4"
-          style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
-        >
-          {items.map((it, i) => {
-            const tone =
-              it.isPast
-                ? (it.status === "conducted" ? "good" : it.status === "penalty" ? "bad" : "warn")
-                : "warn";
-            const dLabel = dateLabel(it.iso);
-            const rel = !it.isPast ? relativeUpcoming(it.iso, it.slot_time) : null;
-            const lowBalance =
-              !it.isPast && typeof it.student_balance === "number" && it.student_balance <= 0;
+          <div className="flex items-end justify-between mb-3">
+            <div>
+              <div className="font-serif text-[44px] font-medium tabular-nums leading-none tracking-[-0.6px]">
+                {counted}
+              </div>
+              <div className="text-[12px] text-olive mt-2 uppercase tracking-[0.6px] font-medium">
+                {counted === 1 ? "урок засчитан" : counted < 5 ? "урока засчитано" : "уроков засчитано"}
+              </div>
+            </div>
+            <div className="flex flex-col gap-[6px] items-end">
+              {conducted > 0 && <Chip tone="good" size="s">{conducted} провёл</Chip>}
+              {penalty > 0 && <Chip tone="bad" size="s">{penalty} штраф</Chip>}
+              {cancelled > 0 && <Chip tone="amber" size="s">{cancelled} отм.</Chip>}
+            </div>
+          </div>
 
-            return (
-              <Link
-                key={it.key}
-                href={`/teacher/student/${it.student_id}`}
-                className={`grid grid-cols-[8px_56px_1fr_auto] items-center gap-3 py-[13px] no-underline text-near-black ${
-                  i > 0 ? "border-t border-border-cream" : ""
-                } ${it.isPast ? "opacity-60" : ""}`}
-              >
-                <StatusDot tone={tone} />
-                <span
-                  className={`font-serif text-[18px] font-medium tabular-nums tracking-[-0.2px] ${
-                    it.isPast ? "line-through text-stone" : ""
-                  }`}
-                >
-                  {it.slot_time}
-                </span>
-                <div className="min-w-0">
-                  <div className="text-[15px] font-medium truncate">{it.student_name}</div>
-                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    {dLabel !== "сегодня" && (
-                      <span className="text-[11px] text-olive first-letter:uppercase">
-                        {dLabel}
-                      </span>
-                    )}
-                    {rel && <Chip tone="warn" size="s">{rel}</Chip>}
-                    {lowBalance && <Chip tone="bad" size="s">низкий баланс</Chip>}
-                  </div>
-                </div>
-                {it.isPast && it.status && (
-                  <span className="justify-self-end">{statusChip(it.status)}</span>
-                )}
-              </Link>
-            );
-          })}
+          {/* Чистый stacked-bar пропорционально статусам */}
+          {(conducted + penalty + cancelled) > 0 && (
+            <div className="flex gap-[2px] h-[6px] rounded-full overflow-hidden">
+              {conducted > 0 && (
+                <div className="bg-moss h-full" style={{ flex: conducted }} />
+              )}
+              {penalty > 0 && (
+                <div className="bg-crimson h-full" style={{ flex: penalty }} />
+              )}
+              {cancelled > 0 && (
+                <div className="h-full" style={{ flex: cancelled, backgroundColor: "#d4911d" }} />
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {pastLessons.length > 0 && (
-        <div className="mt-6">
+      {scheduled.length === 0 && done.length === 0 && (
+        <div className="bg-ivory rounded-[14px] shadow-ring py-10 text-center">
+          <p className="text-olive">На этот день ничего не запланировано.</p>
+          <Link
+            href={`/teacher/lesson/new?date=${date}`}
+            className="text-terracotta text-sm no-underline mt-2 inline-block"
+          >
+            Добавить урок →
+          </Link>
+        </div>
+      )}
+
+      {/* Слоты — просто напоминание, без кнопок */}
+      {scheduled.length > 0 && (
+        <section className="mb-4">
+          <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
+            По расписанию
+          </div>
+          <div className="flex flex-col gap-[8px]">
+            {scheduled.map((a) => {
+              const isLow = a.student_balance <= 0;
+              const relTime = a.slot_time ? relativeTime(a.slot_time, date) : null;
+              return (
+                <Link
+                  key={`${a.student_id}-${a.slot_time}`}
+                  href={`/teacher/student/${a.student_id}`}
+                  className="bg-ivory rounded-[14px] shadow-ring px-4 py-3 flex items-center gap-[14px] no-underline text-near-black"
+                >
+                  <div className="font-serif text-[18px] font-medium tabular-nums min-w-[52px] tracking-[-0.2px]">
+                    {a.slot_time ?? "—"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[15px] font-medium truncate">{a.student_name}</span>
+                      {isLow && <Chip tone="bad" size="s">низкий баланс</Chip>}
+                      {relTime && (
+                        <span
+                          className={
+                            relTime === "идёт сейчас"
+                              ? "text-[12px] text-terracotta font-medium"
+                              : "text-[12px] text-olive font-medium"
+                          }
+                        >
+                          {relTime}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Последние уроки */}
+      {recentLessons.length > 0 && (
+        <section>
           <div className="text-[12px] uppercase tracking-[0.8px] font-medium text-stone mb-2">
             Последние уроки
           </div>
@@ -182,7 +169,7 @@ export function TodayAgenda({
             className="bg-ivory rounded-[14px] px-4"
             style={{ boxShadow: "inset 0 0 0 1px #f0eee6" }}
           >
-            {pastLessons.map((l, i) => (
+            {recentLessons.map((l, i) => (
               <Link
                 key={l.id}
                 href={`/teacher/student/${l.student_id}`}
@@ -195,10 +182,7 @@ export function TodayAgenda({
                     {l.student_name}
                   </div>
                   <div className="text-[12px] text-olive tabular-nums mt-0.5">
-                    {new Date(l.lesson_date).toLocaleDateString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                    })}
+                    {fmtShortDate(l.lesson_date)}
                     {l.topic ? ` · ${l.topic}` : ""}
                   </div>
                 </div>
@@ -206,7 +190,7 @@ export function TodayAgenda({
               </Link>
             ))}
           </div>
-        </div>
+        </section>
       )}
     </section>
   );

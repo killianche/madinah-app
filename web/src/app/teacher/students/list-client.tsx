@@ -3,9 +3,9 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Chip } from "@/components/ui/chip";
-import type { StudentListItemExtended } from "@/lib/repos/students";
+import type { StudentListItem } from "@/lib/repos/students";
 
-type Filter = "all" | "active" | "low" | "paused" | "graduated" | "dropped" | "archived" | "former";
+type Filter = "all" | "active" | "low" | "paused" | "graduated" | "dropped" | "archived";
 
 function fmtDate(d: Date | string): string {
   const date = typeof d === "string" ? new Date(d) : d;
@@ -21,35 +21,28 @@ function daysAgo(d: Date | string | null): number | null {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
 
-export function StudentsList({ students }: { students: StudentListItemExtended[] }) {
+export function StudentsList({ students }: { students: StudentListItem[] }) {
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
 
-  const current = students.filter((s) => s.is_current);
-  const formerCount = students.length - current.length;
-
-  const activeCount = current.filter((s) => s.status === "active").length;
-  const lowCount = current.filter((s) => s.status === "active" && s.balance <= 0).length;
-  const pausedCount = current.filter((s) => s.status === "paused").length;
-  const graduatedCount = current.filter((s) => s.status === "graduated").length;
-  const droppedCount = current.filter((s) => s.status === "dropped").length;
-  const archivedCount = current.filter((s) => s.status === "archived").length;
+  const activeCount = students.filter((s) => s.status === "active").length;
+  const lowCount = students.filter((s) => s.status === "active" && s.balance <= 0).length;
+  const pausedCount = students.filter((s) => s.status === "paused").length;
+  const graduatedCount = students.filter((s) => s.status === "graduated").length;
+  const droppedCount = students.filter((s) => s.status === "dropped").length;
+  const archivedCount = students.filter((s) => s.status === "archived").length;
 
   const filtered = useMemo(() => {
-    let list: StudentListItemExtended[] = students;
-    if (filter === "former") {
-      list = list.filter((s) => !s.is_current);
-    } else {
-      list = list.filter((s) => s.is_current);
-      if (filter === "all") list = list.filter((s) => s.status === "active" || s.status === "paused");
-      if (filter === "active") list = list.filter((s) => s.status === "active");
-      if (filter === "low") list = list.filter((s) => s.status === "active" && s.balance <= 0);
-      if (filter === "paused") list = list.filter((s) => s.status === "paused");
-      if (filter === "graduated") list = list.filter((s) => s.status === "graduated");
-      if (filter === "dropped") list = list.filter((s) => s.status === "dropped");
-      if (filter === "archived") list = list.filter((s) => s.status === "archived");
-    }
+    let list = students;
+    // По умолчанию (all) — только active + paused. Для отдельных — по статусу.
+    if (filter === "all") list = list.filter((s) => s.status === "active" || s.status === "paused");
+    if (filter === "active") list = list.filter((s) => s.status === "active");
+    if (filter === "low") list = list.filter((s) => s.status === "active" && s.balance <= 0);
+    if (filter === "paused") list = list.filter((s) => s.status === "paused");
+    if (filter === "graduated") list = list.filter((s) => s.status === "graduated");
+    if (filter === "dropped") list = list.filter((s) => s.status === "dropped");
+    if (filter === "archived") list = list.filter((s) => s.status === "archived");
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((s) => s.full_name.toLowerCase().includes(q));
     return [...list].sort((a, b) => a.full_name.localeCompare(b.full_name));
@@ -145,15 +138,6 @@ export function StudentsList({ students }: { students: StudentListItemExtended[]
             Архив
           </FilterPill>
         )}
-        {formerCount > 0 && (
-          <FilterPill
-            active={filter === "former"}
-            count={formerCount}
-            onClick={() => setFilter("former")}
-          >
-            Переданы
-          </FilterPill>
-        )}
       </div>
 
       {/* List */}
@@ -178,50 +162,32 @@ export function StudentsList({ students }: { students: StudentListItemExtended[]
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`text-[16px] font-medium truncate ${!s.is_current ? "text-charcoal" : ""}`}
-                    >
-                      {s.full_name}
-                    </span>
-                    {!s.is_current && (
-                      <Chip tone="neutral" size="s">
-                        передан{s.current_teacher_name ? ` · ${s.current_teacher_name}` : ""}
-                      </Chip>
-                    )}
-                    {s.is_current && isNew && <Chip tone="warn" size="s">новый</Chip>}
-                    {s.is_current && isLow && <Chip tone="bad" size="s">низкий баланс</Chip>}
-                    {s.is_current && isStale && !isLow && <Chip tone="warn" size="s">давно не было</Chip>}
+                    <span className="text-[16px] font-medium truncate">{s.full_name}</span>
+                    {isNew && <Chip tone="warn" size="s">новый</Chip>}
+                    {isLow && <Chip tone="bad" size="s">низкий баланс</Chip>}
+                    {isStale && !isLow && <Chip tone="warn" size="s">давно не было</Chip>}
                     {s.is_charity && <Chip tone="neutral" size="s">благ.</Chip>}
                   </div>
                   <div className="text-[13px] text-olive tabular-nums mt-0.5">
                     {s.last_lesson_date
-                      ? `${s.is_current ? "" : "посл. с тобой "}${fmtDate(s.last_lesson_date)}${ago !== null ? ` · ${ago} дн.` : ""}`
+                      ? `${fmtDate(s.last_lesson_date)}${ago !== null ? ` · ${ago} дн.` : ""}`
                       : "Ещё не было уроков"}
-                    {s.is_current && s.attendance_pct !== null && (
+                    {s.attendance_pct !== null && (
                       <span className="ml-2 text-stone">· посещ. {s.attendance_pct}%</span>
-                    )}
-                    {!s.is_current && s.conducted > 0 && (
-                      <span className="ml-2 text-stone">· {s.conducted} провёл</span>
                     )}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="font-serif text-[22px] font-medium tabular-nums leading-none text-near-black">
-                    {s.total}
+                  <div
+                    className={`font-serif text-[22px] font-medium tabular-nums leading-none ${
+                      s.balance <= 0 ? "text-crimson" : ""
+                    }`}
+                  >
+                    {s.balance}
                   </div>
                   <div className="text-[10px] font-medium uppercase tracking-[0.6px] text-stone mt-1">
                     уроков
                   </div>
-                  {s.is_current && (
-                    <div
-                      className={`flex items-center gap-1 justify-end mt-1.5 text-[12px] tabular-nums ${
-                        s.balance <= 0 ? "text-crimson" : "text-stone"
-                      }`}
-                    >
-                      <WalletIcon />
-                      {s.balance}
-                    </div>
-                  )}
                 </div>
               </Link>
             );
@@ -261,26 +227,6 @@ function FilterPill({
         {count}
       </span>
     </button>
-  );
-}
-
-function WalletIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="13"
-      height="13"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
-      <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
-      <path d="M18 12a2 2 0 0 0-2 2c0 1.11.89 2 2 2h4v-4z" />
-    </svg>
   );
 }
 

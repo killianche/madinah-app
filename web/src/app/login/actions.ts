@@ -24,11 +24,10 @@ export async function loginAction(
   // Нормализуем: если пользователь ввёл 8XXX или 7XXX — превращаем в +7XXX
   const normalizedPhone = normalizePhone(identifier);
 
-  // ищем по логину, email или телефону (оригинал или нормализованный)
+  // ищем по email или телефону (оригинал или нормализованный)
   const rows = await sql<Array<{ id: string; password_hash: string | null; is_active: boolean }>>`
     select id, password_hash, is_active from users
-    where login = ${identifier}
-       or email = ${identifier.toLowerCase()}
+    where email = ${identifier.toLowerCase()}
        or phone = ${identifier}
        or phone = ${normalizedPhone}
     limit 1

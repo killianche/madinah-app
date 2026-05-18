@@ -3,19 +3,19 @@
  */
 
 export type UserRole =
-  | "admin"     // полный доступ + сотрудники + ставки
-  | "manager"   // создаёт учеников и смотрит список
-  | "curator"   // оперативное управление: ученики, учителя, attention
-  | "head"      // руководитель: куратор + видит зарплаты + создание сотрудников (кроме админов)
+  | "admin"
+  | "director"
+  | "manager"
+  | "curator"
+  | "head"      // руководитель учителей (права как у куратора)
   | "teacher";
 
-export type TeacherStatus = "active" | "paused" | "fired" | "archived";
+export type TeacherStatus = "active" | "archived";
 export type StudentStatus =
   | "active"      // Обучается
   | "paused"      // В отпуске (временно)
   | "graduated"   // Выпускник
   | "dropped"     // Бросил
-  | "closed"      // Закрыт куратором — больше не появляется в attention
   | "archived";   // Архив (общий)
 
 export const STUDENT_STATUS_LABEL: Record<StudentStatus, string> = {
@@ -23,7 +23,6 @@ export const STUDENT_STATUS_LABEL: Record<StudentStatus, string> = {
   paused: "В отпуске",
   graduated: "Выпускник",
   dropped: "Бросил",
-  closed: "Закрыт",
   archived: "Архив",
 };
 
@@ -31,7 +30,6 @@ export const STUDENT_STATUS_LABEL: Record<StudentStatus, string> = {
 export const INACTIVE_STUDENT_STATUSES: StudentStatus[] = [
   "graduated",
   "dropped",
-  "closed",
   "archived",
 ];
 
@@ -45,7 +43,6 @@ export interface User {
   id: string;
   role: UserRole;
   full_name: string;
-  login: string | null;
   phone: string | null;
   email: string | null;
   is_active: boolean;
@@ -62,8 +59,6 @@ export interface Teacher {
   status: TeacherStatus;
   hired_at: Date | null;
   archived_at: Date | null;
-  rate_conducted: number | null;
-  rate_penalty: number | null;
 }
 
 export interface Student {
@@ -71,8 +66,6 @@ export interface Student {
   full_name: string;
   phone: string | null;
   telegram_username: string | null;
-  telegram_phone: string | null;
-  whatsapp_phone: string | null;
   teacher_id: string | null;
   balance: number;
   is_charity: boolean;
@@ -80,7 +73,6 @@ export interface Student {
   charity_note: string | null;
   status: StudentStatus;
   enrolled_at: Date | null;
-  created_by_user_id: string | null;
 }
 
 export interface Lesson {
@@ -158,8 +150,9 @@ export const LESSON_STATUS_DEDUCTS: Record<LessonStatus, boolean> = {
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
   admin: "Администратор",
+  director: "Директор",
   manager: "Менеджер",
   curator: "Куратор",
-  head: "Руководитель",
+  head: "Руководитель учителей",
   teacher: "Учитель",
 };

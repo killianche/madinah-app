@@ -57,54 +57,11 @@
   html.dark .shadow-ring {
     box-shadow: inset 0 0 0 1px #2a2a28 !important;
   }
-  /* Любой inline-style с цветом #f0eee6 или #e8e6dc в тёмной теме —
-     перебиваем на тёмные оттенки. Перекрывает в т.ч. варианты после React-нормализации. */
-  html.dark [style*="#f0eee6"],
-  html.dark [style*="#F0EEE6"],
-  html.dark [style*="240, 238, 230"],
-  html.dark [style*="rgb(240,238,230)"] {
+  html.dark [style*="inset 0 0 0 1px #f0eee6"] {
     box-shadow: inset 0 0 0 1px #2a2a28 !important;
   }
-  html.dark [style*="#e8e6dc"],
-  html.dark [style*="#E8E6DC"],
-  html.dark [style*="232, 230, 220"],
-  html.dark [style*="rgb(232,230,220)"] {
+  html.dark [style*="inset 0 0 0 1px #e8e6dc"] {
     box-shadow: inset 0 0 0 1px #3a3a37 !important;
-  }
-  /* /admin — всегда light-тема, темные оверрайды не действуют внутри */
-  .admin-shell,
-  html.dark .admin-shell {
-    background: #f5f4ed !important;
-    color: #141413 !important;
-    color-scheme: light !important;
-  }
-  html.dark .admin-shell .bg-ivory,
-  html.dark .admin-shell [class*="bg-ivory"] { background-color: #faf9f5 !important; }
-  html.dark .admin-shell .text-near-black,
-  html.dark .admin-shell [class*="text-near-black"] { color: #141413 !important; }
-  html.dark .admin-shell .text-charcoal { color: #4d4c48 !important; }
-  html.dark .admin-shell .text-olive { color: #5e5d59 !important; }
-  html.dark .admin-shell .text-stone { color: #87867f !important; }
-  html.dark .admin-shell .bg-warm-sand { background-color: #e8e6dc !important; }
-  html.dark .admin-shell .bg-parchment { background-color: #f5f4ed !important; }
-
-  /* Soft terracotta-обводки (например, баннер "Без учителя") */
-  html.dark [style*="rgba(201,100,66,0.45)"],
-  html.dark [style*="rgba(201, 100, 66, 0.45)"],
-  html.dark [style*="rgba(201,100,66,0.4)"] {
-    box-shadow: inset 0 0 0 1px rgba(216, 134, 105, 0.55) !important;
-  }
-  html.dark [style*="rgba(181,51,51,"],
-  html.dark [style*="rgba(181, 51, 51,"] {
-    box-shadow: inset 0 0 0 1px rgba(232, 128, 128, 0.45) !important;
-  }
-  /* Кнопка terracotta — повышаем контраст в тёмной теме */
-  html.dark .bg-terracotta {
-    background-color: #d98669 !important;
-  }
-  html.dark .bg-terracotta.text-ivory,
-  html.dark .text-ivory {
-    color: #ffffff !important;
   }
   html.dark .border-border-cream {
     border-color: #2a2a28 !important;

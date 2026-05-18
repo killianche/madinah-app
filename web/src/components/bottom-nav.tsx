@@ -12,9 +12,6 @@ type IconName =
   | "user"
   | "attention"
   | "problems"
-  | "teachers"
-  | "wallet"
-  | "settings"
   | "plus";
 
 interface Tab {
@@ -59,76 +56,16 @@ function tabsFor(role: UserRole): Tab[] {
       },
     ];
   }
-  if (role === "manager") {
-    return [
-      {
-        href: "/manager",
-        label: "Ученики",
-        icon: "users",
-        match: (p) =>
-          p === "/manager" || p.startsWith("/manager?") || p.startsWith("/teacher/student/"),
-      },
-      { href: "/manager/students/new", label: "Создать", icon: "plus", fab: true },
-      { href: "/teacher/profile", label: "Профиль", icon: "user" },
-    ];
-  }
-
-  // admin — расширенный набор: дашборд, ученики, +, зарплата, профиль
   if (role === "admin") {
     return [
-      {
-        href: "/manager/dashboard",
-        label: "Обзор",
-        icon: "chart",
-        match: (p) => p === "/manager/dashboard",
-      },
-      {
-        href: "/manager",
-        label: "Ученики",
-        icon: "users",
-        match: (p) =>
-          p === "/manager" || p.startsWith("/manager?") || p.startsWith("/teacher/student/"),
-      },
-      { href: "/manager/students/new", label: "Ученик", icon: "plus", fab: true },
-      {
-        href: "/manager/salary",
-        label: "Зарплата",
-        icon: "wallet",
-        match: (p) => p.startsWith("/manager/salary"),
-      },
+      { href: "/admin", label: "Сотрудники", icon: "users" },
+      { href: "/manager", label: "Ученики", icon: "calendar" },
+      { href: "/admin/users/new", label: "Создать", icon: "plus", fab: true },
+      { href: "/manager/attention", label: "Внимание", icon: "attention" },
       { href: "/teacher/profile", label: "Профиль", icon: "user" },
     ];
   }
-
-  // head — куратор + зарплата
-  if (role === "head") {
-    return [
-      {
-        href: "/manager",
-        label: "Ученики",
-        icon: "users",
-        match: (p) =>
-          p === "/manager" || p.startsWith("/manager?") || p.startsWith("/teacher/student/"),
-      },
-      {
-        href: "/manager/attention",
-        label: "Внимание",
-        icon: "attention",
-        match: (p) =>
-          p.startsWith("/manager/attention") || p.startsWith("/manager/problems"),
-      },
-      { href: "/manager/students/new", label: "Ученик", icon: "plus", fab: true },
-      {
-        href: "/manager/salary",
-        label: "Зарплата",
-        icon: "wallet",
-        match: (p) => p.startsWith("/manager/salary"),
-      },
-      { href: "/teacher/profile", label: "Профиль", icon: "user" },
-    ];
-  }
-
-  // curator — без зарплаты
+  // manager, curator, head, director
   return [
     {
       href: "/manager",
@@ -137,20 +74,9 @@ function tabsFor(role: UserRole): Tab[] {
       match: (p) =>
         p === "/manager" || p.startsWith("/manager?") || p.startsWith("/teacher/student/"),
     },
-    {
-      href: "/manager/attention",
-      label: "Внимание",
-      icon: "attention",
-      match: (p) =>
-        p.startsWith("/manager/attention") || p.startsWith("/manager/problems"),
-    },
+    { href: "/manager/attention", label: "Внимание", icon: "attention" },
     { href: "/manager/students/new", label: "Ученик", icon: "plus", fab: true },
-    {
-      href: "/manager/teachers",
-      label: "Учителя",
-      icon: "teachers",
-      match: (p) => p.startsWith("/manager/teachers"),
-    },
+    { href: "/manager/problems", label: "Проблемные", icon: "problems" },
     { href: "/teacher/profile", label: "Профиль", icon: "user" },
   ];
 }
@@ -161,12 +87,11 @@ export function BottomNav({ role }: { role: UserRole }) {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-ivory border-t border-border-cream"
-      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 4px)" }}
+      className="fixed bottom-0 left-0 right-0 z-40 bg-ivory border-t border-border-cream pb-[env(safe-area-inset-bottom)]"
       aria-label="Основная навигация"
     >
       <ul
-        className="max-w-md mx-auto grid items-end pt-1"
+        className="max-w-md mx-auto grid items-end"
         style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}
       >
         {tabs.map((t) => {
@@ -176,7 +101,10 @@ export function BottomNav({ role }: { role: UserRole }) {
               <li key={t.href} className="relative flex justify-center">
                 <Link
                   href={t.href}
-                  className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-terracotta text-ivory no-underline active:scale-95 transition-transform -translate-y-3 shadow-[0_4px_12px_rgba(201,100,66,0.35),0_0_0_3px_#f5f4ed] dark:shadow-[0_4px_12px_rgba(201,100,66,0.25),0_0_0_3px_#141413]"
+                  className="flex flex-col items-center justify-center w-14 h-14 rounded-full bg-terracotta text-ivory no-underline active:scale-95 transition-transform -translate-y-3"
+                  style={{
+                    boxShadow: "0 4px 12px rgba(201,100,66,0.35), 0 0 0 3px #f5f4ed",
+                  }}
                   aria-label={t.label}
                 >
                   <Icon name={t.icon} className="w-7 h-7" />
@@ -273,33 +201,11 @@ function Icon({ name, className }: { name: IconName; className?: string }) {
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       );
-    case "teachers":
-      return (
-        <svg {...props}>
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-          <path d="M6 12v5c3 3 9 3 12 0v-5" />
-        </svg>
-      );
     case "plus":
       return (
         <svg {...props} strokeWidth={2.4}>
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      );
-    case "wallet":
-      return (
-        <svg {...props}>
-          <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
-          <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
-          <path d="M18 12a2 2 0 0 0-2 2c0 1.11.89 2 2 2h4v-4z" />
-        </svg>
-      );
-    case "settings":
-      return (
-        <svg {...props}>
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
       );
   }
