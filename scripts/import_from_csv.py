@@ -265,9 +265,9 @@ def write_to_db(dsn: str, teachers, students, lessons):
             for i in range(0, len(lessons), BATCH):
                 chunk = lessons[i:i + BATCH]
                 cur.executemany(
-                    """insert into lessons (id, student_id, teacher_id, lesson_date, status)
-                       values (%s, %s, %s, %s, %s)""",
-                    [(l.id, l.student_id, l.teacher_id, l.lesson_date, l.status) for l in chunk],
+                    """insert into lessons (id, student_id, teacher_id, lesson_date, scheduled_date, status)
+                       values (%s, %s, %s, %s, %s, %s)""",
+                    [(l.id, l.student_id, l.teacher_id, l.lesson_date, l.lesson_date, l.status) for l in chunk],
                 )
                 print(f"  {min(i + BATCH, len(lessons))}/{len(lessons)}")
 

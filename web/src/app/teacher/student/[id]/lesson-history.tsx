@@ -1,0 +1,193 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Chip } from "@/components/ui/chip";
+import type { LessonStatus } from "@/lib/types";
+import { LESSON_STATUS_LABEL } from "@/lib/types";
+
+export interface LessonRow {
+  id: string;
+  lesson_date: string | Date;
+  status: LessonStatus;
+  teacher_name: string;
+  topic: string | null;
+  ordinal: number;
+}
+
+type Filter = "all" | "counted" | "cancelled";
+
+function fmtDate(d: string | Date): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function statusChip(status: LessonStatus) {
+  if (status === "conducted")
+    return (
+      <Chip tone="good" size="s">
+        проведён
+      </Chip>
+    );
+  if (status === "penalty")
+    return (
+      <Chip tone="bad" size="s">
+        штраф
+      </Chip>
+    );
+  // cancelled_by_student / cancelled_by_teacher — жёлтая пилюля
+  return (
+    <Chip tone="amber" size="s">
+      {LESSON_STATUS_LABEL[status]}
+    </Chip>
+  );
+}
+
+export function LessonHistory({
+  lessons,
+  canEdit = false,
+  editableLessonIds,
+}: {
+  lessons: LessonRow[];
+  canEdit?: boolean;
+  /** Если задан — кнопки edit показываются только у этих lesson.id (для учителя — его последний с этим учеником). undefined = показывать у всех при canEdit. */
+  editableLessonIds?: string[];
+}) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [limit, setLimit] = useState(20);
+
+  // Засчитанные = conducted + penalty (списано с баланса)
+  // Отменённые = cancelled_by_student + cancelled_by_teacher (не списано)
+  const counts = useMemo(() => {
+    const counted = lessons.filter(
+      (l) => l.status === "conducted" || l.status === "penalty",
+    ).length;
+    const cancelled = lessons.length - counted;
+    return { counted, cancelled, total: lessons.length };
+  }, [lessons]);
+
+  const filtered = useMemo(() => {
+    return lessons.filter((l) => {
+      if (filter === "all") return true;
+      if (filter === "counted")
+        return l.status === "conducted" || l.status === "penalty";
+      return l.status === "cancelled_by_student" || l.status === "cancelled_by_teacher";
+    });
+  }, [filter, lessons]);
+
+  const shown = filtered.slice(0, limit);
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="flex items-center gap-[6px] mb-2">
+        <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
+          Все · {counts.total}
+        </FilterPill>
+        <FilterPill
+          active={filter === "counted"}
+          onClick={() => setFilter("counted")}
+        >
+          Засчитано · {counts.counted}
+        </FilterPill>
+        <FilterPill
+          active={filter === "cancelled"}
+          onClick={() => setFilter("cancelled")}
+        >
+          Отменено · {counts.cancelled}
+        </FilterPill>
+      </div>
+      <p className="text-[12px] text-stone mb-3 tabular-nums">
+        Засчитано (с баланса): провёл + штраф · Отменено баланс не трогает
+      </p>
+
+      {shown.length === 0 ? (
+        <div className="bg-ivory rounded-[14px] shadow-ring p-4 text-olive text-sm">
+          Нет уроков в выбранной категории.
+        </div>
+      ) : (
+        <div className="bg-ivory rounded-[14px] shadow-ring px-4">
+          {shown.map((l, i) => (
+            <div
+              key={l.id}
+              className={`grid grid-cols-[44px_1fr_auto] gap-3 items-center py-[14px] ${
+                i > 0 ? "border-t border-border-cream" : ""
+              }`}
+            >
+              <span
+                className={`font-serif text-[20px] tabular-nums ${
+                  l.ordinal > 0 ? "text-near-black" : "text-stone"
+                }`}
+              >
+                {l.ordinal > 0 ? `#${l.ordinal}` : "—"}
+              </span>
+              <div className="min-w-0">
+                <div className="font-medium text-[15px] tabular-nums">
+                  {fmtDate(l.lesson_date)}
+                </div>
+                <div className="text-[13px] text-olive truncate">
+                  {l.teacher_name}
+                  {l.topic ? ` · ${l.topic}` : ""}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {statusChip(l.status)}
+                {canEdit &&
+                  (editableLessonIds === undefined ||
+                    editableLessonIds.includes(l.id)) && (
+                  <Link
+                    href={`/teacher/lesson/${l.id}/edit`}
+                    className="text-[12px] text-stone hover:text-near-black px-2 py-1 rounded-[8px] no-underline"
+                    style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+                    aria-label="Редактировать"
+                  >
+                    ✎
+                  </Link>
+                )}
+              </div>
+            </div>
+          ))}
+          {filtered.length > limit && (
+            <button
+              type="button"
+              onClick={() => setLimit((n) => n + 20)}
+              className="w-full my-2 py-[10px] text-[14px] font-medium text-charcoal rounded-[12px]"
+              style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+            >
+              Показать ещё
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterPill({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-[13px] font-medium px-[10px] py-[6px] rounded-full transition-colors ${
+        active
+          ? "bg-near-black text-ivory"
+          : "text-charcoal"
+      }`}
+      style={!active ? { boxShadow: "inset 0 0 0 1px #e8e6dc" } : {}}
+    >
+      {children}
+    </button>
+  );
+}

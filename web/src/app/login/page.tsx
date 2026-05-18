@@ -26,10 +26,6 @@ export default async function LoginPage({
         <div className="card">
           <LoginForm redirectTo={sp.from} initialError={sp.error} />
         </div>
-
-        <p className="text-center text-xs text-olive-gray mt-8">
-          Аккаунты выдаются администратором школы.
-        </p>
       </div>
     </div>
   );

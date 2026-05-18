@@ -13,11 +13,9 @@ export default async function Home() {
       redirect("/teacher");
     case "manager":
     case "curator":
-      redirect("/manager");
-    case "director":
-      redirect("/director");
+    case "head":
     case "admin":
-      redirect("/admin");
+      redirect("/manager");
   }
 
   redirect("/login");

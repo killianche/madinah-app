@@ -2,10 +2,38 @@
  * Доменные типы. Зеркалят БД, но не один-в-один — с учётом потребностей UI.
  */
 
-export type UserRole = "admin" | "director" | "manager" | "curator" | "teacher";
+export type UserRole =
+  | "admin"     // полный доступ + сотрудники + ставки
+  | "manager"   // создаёт учеников и смотрит список
+  | "curator"   // оперативное управление: ученики, учителя, attention
+  | "head"      // руководитель: куратор + видит зарплаты + создание сотрудников (кроме админов)
+  | "teacher";
 
-export type TeacherStatus = "active" | "archived";
-export type StudentStatus = "active" | "paused" | "archived";
+export type TeacherStatus = "active" | "paused" | "fired" | "archived";
+export type StudentStatus =
+  | "active"      // Обучается
+  | "paused"      // В отпуске (временно)
+  | "graduated"   // Выпускник
+  | "dropped"     // Бросил
+  | "closed"      // Закрыт куратором — больше не появляется в attention
+  | "archived";   // Архив (общий)
+
+export const STUDENT_STATUS_LABEL: Record<StudentStatus, string> = {
+  active: "Обучается",
+  paused: "В отпуске",
+  graduated: "Выпускник",
+  dropped: "Бросил",
+  closed: "Закрыт",
+  archived: "Архив",
+};
+
+// Статусы, при которых ученик НЕ активен (скрываем из списков учителя и «Сегодня»).
+export const INACTIVE_STUDENT_STATUSES: StudentStatus[] = [
+  "graduated",
+  "dropped",
+  "closed",
+  "archived",
+];
 
 export type LessonStatus =
   | "conducted"
@@ -17,6 +45,7 @@ export interface User {
   id: string;
   role: UserRole;
   full_name: string;
+  login: string | null;
   phone: string | null;
   email: string | null;
   is_active: boolean;
@@ -33,6 +62,8 @@ export interface Teacher {
   status: TeacherStatus;
   hired_at: Date | null;
   archived_at: Date | null;
+  rate_conducted: number | null;
+  rate_penalty: number | null;
 }
 
 export interface Student {
@@ -40,6 +71,8 @@ export interface Student {
   full_name: string;
   phone: string | null;
   telegram_username: string | null;
+  telegram_phone: string | null;
+  whatsapp_phone: string | null;
   teacher_id: string | null;
   balance: number;
   is_charity: boolean;
@@ -47,16 +80,15 @@ export interface Student {
   charity_note: string | null;
   status: StudentStatus;
   enrolled_at: Date | null;
+  created_by_user_id: string | null;
 }
 
 export interface Lesson {
   id: string;
   student_id: string;
   teacher_id: string;
-  lesson_date: Date;          // фактическая дата
-  lesson_time: string | null; // фактическое время
-  scheduled_date: Date;       // плановая дата по графику; = lesson_date, если не переносили
-  scheduled_time: string | null;
+  lesson_date: Date;
+  lesson_time: string | null;
   status: LessonStatus;
   duration_units: number;
   topic: string | null;
@@ -115,17 +147,19 @@ export const LESSON_STATUS_LABEL: Record<LessonStatus, string> = {
   cancelled_by_student: "Отменён учеником",
 };
 
+// Списывается с баланса: провёл + штрафной («сгорает»).
+// Отмена — баланс не трогаем (ни учеником, ни учителем).
 export const LESSON_STATUS_DEDUCTS: Record<LessonStatus, boolean> = {
   conducted: true,
   penalty: true,
-  cancelled_by_teacher: false,
   cancelled_by_student: false,
+  cancelled_by_teacher: false,
 };
 
 export const USER_ROLE_LABEL: Record<UserRole, string> = {
   admin: "Администратор",
-  director: "Директор",
   manager: "Менеджер",
   curator: "Куратор",
+  head: "Руководитель",
   teacher: "Учитель",
 };

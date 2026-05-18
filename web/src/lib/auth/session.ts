@@ -53,11 +53,11 @@ export async function getAuthFromToken(token: string | undefined): Promise<AuthC
 
   const rows = await sql<Array<{
     id: string; user_id: string; expires_at: Date;
-    role: UserRole; full_name: string; phone: string | null; email: string | null;
+    role: UserRole; full_name: string; login: string | null; phone: string | null; email: string | null;
     is_active: boolean; last_login_at: Date | null; created_at: Date;
   }>>`
     select s.id, s.user_id, s.expires_at,
-           u.role, u.full_name, u.phone, u.email, u.is_active, u.last_login_at, u.created_at
+           u.role, u.full_name, u.login, u.phone, u.email, u.is_active, u.last_login_at, u.created_at
     from user_sessions s
     join users u on u.id = s.user_id
     where s.id = ${id}
@@ -75,6 +75,7 @@ export async function getAuthFromToken(token: string | undefined): Promise<AuthC
       id: row.user_id,
       role: row.role,
       full_name: row.full_name,
+      login: row.login,
       phone: row.phone,
       email: row.email,
       is_active: row.is_active,
@@ -92,7 +93,9 @@ export async function setSessionCookie(token: string, expiresAt: Date) {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Secure cookie только если APP_URL реально https — иначе cookie
+    // не долетит через http и логин разваливается.
+    secure: (process.env.APP_URL ?? "").startsWith("https://"),
     sameSite: "lax",
     path: "/",
     expires: expiresAt,

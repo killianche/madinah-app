@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { notifyTopup, notifyLowBalanceIfNeeded } from "@/lib/notify";
 
 export interface CreateTopupInput {
   student_id: string;
@@ -8,13 +9,13 @@ export interface CreateTopupInput {
 }
 
 export async function createTopup(input: CreateTopupInput): Promise<string> {
-  return sql.begin(async (tx) => {
+  const topupId = await sql.begin(async (tx) => {
     const rows = await tx<Array<{ id: string }>>`
       insert into balance_topups (student_id, lessons_added, reason, added_by)
       values (${input.student_id}, ${input.lessons_added}, ${input.reason ?? null}, ${input.added_by})
       returning id
     `;
-    const topupId = rows[0]!.id;
+    const id = rows[0]!.id;
     await tx`
       update students set balance = balance + ${input.lessons_added}, updated_at = now()
       where id = ${input.student_id}
@@ -26,8 +27,16 @@ export async function createTopup(input: CreateTopupInput): Promise<string> {
         reason: input.reason,
       })})
     `;
-    return topupId;
+    return id;
   });
+
+  // После транзакции: триггеры уведомлений (тихие, не ломают основную операцию).
+  await notifyTopup(input.student_id, input.lessons_added, input.added_by);
+  // Если коррекция была отрицательной — баланс мог упасть, проверим low_balance.
+  if (input.lessons_added < 0) {
+    await notifyLowBalanceIfNeeded(input.student_id);
+  }
+  return topupId;
 }
 
 export interface TopupListItem {
