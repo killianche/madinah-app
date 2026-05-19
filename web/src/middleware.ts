@@ -5,7 +5,14 @@ import { NextResponse, type NextRequest } from "next/server";
  * Реальная валидация сессии в БД происходит в requireAuth() внутри Server Components
  * (middleware в Next 15 работает в Edge runtime, а наш postgres-клиент — Node).
  */
-const PUBLIC_PATHS = ["/login", "/api/health", "/_next", "/favicon.ico"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/health",
+  "/api/version",
+  "/api/integrations/", // защищены Bearer-токеном внутри роутов
+  "/_next",
+  "/favicon.ico",
+];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -29,6 +36,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // всё кроме статики и api-health
-    "/((?!_next/static|_next/image|favicon.ico|api/health).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/health|api/version|api/integrations/).*)",
   ],
 };

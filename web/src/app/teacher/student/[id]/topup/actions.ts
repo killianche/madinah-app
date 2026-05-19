@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth/session";
 import { createTopup } from "@/lib/repos/topups";
+import { assertTeacherOwnsStudent } from "@/lib/repos/students";
 
 const schema = z.object({
   student_id: z.string().uuid(),
@@ -17,8 +18,17 @@ export async function topupAction(
   if (!parsed.success) return { ok: false, error: "Некорректные данные" };
 
   const { user } = await requireAuth();
-  if (!["teacher", "manager", "curator", "director", "admin"].includes(user.role)) {
+  if (!["teacher", "manager", "curator", "head", "director", "admin"].includes(user.role)) {
     return { ok: false, error: "Недостаточно прав" };
+  }
+
+  // Учитель — только свой ученик.
+  if (user.role === "teacher") {
+    try {
+      await assertTeacherOwnsStudent(user.id, parsed.data.student_id);
+    } catch {
+      return { ok: false, error: "Это не ваш ученик" };
+    }
   }
 
   try {

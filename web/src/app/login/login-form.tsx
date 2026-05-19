@@ -25,7 +25,11 @@ export function LoginForm({
     startTransition(async () => {
       const result = await loginAction({ identifier, password });
       if (result.ok) {
-        router.push(redirectTo && !redirectTo.startsWith("/login") ? redirectTo : "/");
+        // Всегда идём на корень — там / page.tsx делает редирект под актуальную роль.
+        // Это нужно чтобы PWA-ярлык на главном экране (start_url=/) всегда работал
+        // одинаково после смены аккаунта. `redirectTo` игнорируем — устаревший URL
+        // (например /teacher после переключения на куратора) ломал бы flow.
+        router.push("/");
         router.refresh();
       } else {
         setError(result.error);
@@ -35,7 +39,7 @@ export function LoginForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Телефон или email" helper="Как выдал администратор">
+      <Field label="Телефон или логин">
         <Input
           type="text"
           autoComplete="username"

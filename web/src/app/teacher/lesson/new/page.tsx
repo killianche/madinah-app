@@ -24,7 +24,10 @@ export default async function NewLessonPage({
     );
   }
 
-  const students = await teacherStudentList(teacher.id);
+  // Записать урок можно только активному ученику. paused/dropped/graduated/archived убираем —
+  // createLessonAction для них всё равно отказал бы. Учителю проще не видеть их вообще.
+  const allStudents = await teacherStudentList(teacher.id);
+  const students = allStudents.filter((s) => s.status === "active");
   const sp = await searchParams;
 
   return (
