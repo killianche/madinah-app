@@ -32,7 +32,6 @@ import { LessonHistory, type LessonRow } from "./lesson-history";
 import { ScheduleEditClient } from "./schedule-edit-client";
 import { DeleteStudentDialog } from "./delete-student-dialog";
 import { ClaimButton } from "./claim-button";
-import { UnassignSelfButton } from "./unassign-self-button";
 
 export const metadata = { title: "Ученик — Madinah" };
 
@@ -425,14 +424,6 @@ export default async function StudentCard({
               studentName={initialName}
             />
           )}
-          {isTeacherRole &&
-            ownTeacher &&
-            student.teacher_id === ownTeacher.id && (
-              <UnassignSelfButton
-                studentId={student.id}
-                studentName={initialName}
-              />
-            )}
         </div>
       )}
 
