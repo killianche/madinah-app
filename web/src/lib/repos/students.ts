@@ -483,15 +483,15 @@ export async function assignTeacherToStudent(
       values (${actorId}, 'student.assign_teacher', 'student', ${studentId},
               ${sql.json({ teacher_id: teacherId, schedules: schedules ?? [] })})
     `;
-    // Сохраняем выбранные куратором слоты в расписание ученика.
-    // ON CONFLICT — реактивируем уже существующий слот, чтобы повторное назначение не падало.
+    // Логика «новый учитель = новое расписание»:
+    // стираем всё старое расписание ученика, потом записываем выбранные при подборе слоты.
+    // Это убирает падающий ON CONFLICT (unique-constraint deferrable несовместим с ON CONFLICT).
     if (schedules && schedules.length > 0) {
+      await tx`delete from student_schedules where student_id = ${studentId}`;
       for (const slot of schedules) {
         await tx`
           insert into student_schedules (student_id, weekday, time_at, duration_min)
           values (${studentId}, ${slot.weekday}, ${slot.time_at}, 60)
-          on conflict (student_id, weekday, time_at)
-          do update set active = true, updated_at = now()
         `;
       }
     }
