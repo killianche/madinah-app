@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/api/health",
   "/api/version",
   "/api/integrations/", // защищены Bearer-токеном внутри роутов
+  "/api/export", // защищён токеном в query внутри роута
   "/_next",
   "/favicon.ico",
 ];
@@ -36,6 +37,6 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // всё кроме статики и api-health
-    "/((?!_next/static|_next/image|favicon.ico|api/health|api/version|api/integrations/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/health|api/version|api/integrations/|api/export).*)",
   ],
 };
