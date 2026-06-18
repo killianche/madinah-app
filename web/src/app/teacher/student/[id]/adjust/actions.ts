@@ -6,15 +6,17 @@ import { createTopup } from "@/lib/repos/topups";
 
 const schema = z.object({
   student_id: z.string().uuid(),
-  lessons_added: z.number().int().refine((n) => n !== 0, "Нельзя 0"),
-  reason: z.string().max(200).nullable().optional(),
+  delta: z.number().int().refine((n) => n !== 0, "Нельзя 0"),
+  reason: z.string().min(1, "Укажите причину").max(200),
 });
 
-export async function topupAction(
+export async function adjustAction(
   input: z.infer<typeof schema>,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const parsed = schema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Некорректные данные" };
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Некорректные данные" };
+  }
 
   const { user } = await requireAuth();
   if (!["manager", "curator", "head", "admin"].includes(user.role)) {
@@ -25,13 +27,13 @@ export async function topupAction(
   try {
     await createTopup({
       student_id: parsed.data.student_id,
-      lessons_added: parsed.data.lessons_added,
-      reason: parsed.data.reason ?? null,
+      lessons_added: parsed.data.delta,
+      reason: parsed.data.reason,
       added_by: user.id,
     });
     return { ok: true };
   } catch (err) {
-    console.error("createTopup failed:", err);
-    return { ok: false, error: "Не удалось сохранить пополнение" };
+    console.error("adjustAction failed:", err);
+    return { ok: false, error: "Не удалось сохранить коррекцию" };
   }
 }

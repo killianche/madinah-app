@@ -325,12 +325,14 @@ export default async function StudentCard({
               внесено всего {totalTopups}
             </div>
           )}
-          <Link
-            href={`/teacher/student/${student.id}/adjust`}
-            className="inline-block mt-2 text-[12px] font-medium text-terracotta no-underline"
-          >
-            Скорректировать →
-          </Link>
+          {!isTeacherRole && (
+            <Link
+              href={`/teacher/student/${student.id}/adjust`}
+              className="inline-block mt-2 text-[12px] font-medium text-terracotta no-underline"
+            >
+              Скорректировать →
+            </Link>
+          )}
         </div>
 
         {/* Засчитано (conducted + penalty) */}
@@ -380,18 +382,20 @@ export default async function StudentCard({
               <span>Записать</span>
             </Link>
           )}
-          <Link
-            href={`/teacher/student/${student.id}/topup`}
-            className="inline-flex flex-col items-center justify-center gap-1 bg-ivory rounded-[12px] py-3 no-underline font-medium text-[13px] text-charcoal"
-            style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
-          >
-            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 12V8H6a2 2 0 0 1 0-4h12v4" />
-              <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
-              <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
-            </svg>
-            <span>Пополнить</span>
-          </Link>
+          {!isTeacherRole && (
+            <Link
+              href={`/teacher/student/${student.id}/topup`}
+              className="inline-flex flex-col items-center justify-center gap-1 bg-ivory rounded-[12px] py-3 no-underline font-medium text-[13px] text-charcoal"
+              style={{ boxShadow: "inset 0 0 0 1px #e8e6dc" }}
+            >
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 12V8H6a2 2 0 0 1 0-4h12v4" />
+                <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
+                <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+              </svg>
+              <span>Пополнить</span>
+            </Link>
+          )}
           <ChangeStatusDialog
             studentId={student.id}
             currentStatus={student.status}

@@ -2,25 +2,28 @@ import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth/session";
 import { findStudentById } from "@/lib/repos/students";
 import { AppShell } from "@/components/app-shell";
-import { TopupForm } from "./form";
+import { AdjustForm } from "./form";
 
-export const metadata = { title: "Пополнение баланса — Madinah" };
+export const metadata = { title: "Коррекция баланса — Madinah" };
 
-export default async function TopupPage({
+const PRIVILEGED_ROLES = ["manager", "curator", "head", "admin"] as const;
+
+export default async function AdjustPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const auth = await requireAuth();
   const { id } = await params;
-  // Учитель не имеет доступа к пополнению баланса.
-  if (!["manager", "curator", "head", "admin"].includes(auth.user.role)) notFound();
   const student = await findStudentById(id);
   if (!student) notFound();
 
+  const isPrivileged = (PRIVILEGED_ROLES as readonly string[]).includes(auth.user.role);
+  if (!isPrivileged) notFound();
+
   return (
     <AppShell
-      title="Пополнить баланс"
+      title="Коррекция баланса"
       back={{ href: `/teacher/student/${student.id}`, label: student.full_name }}
     >
       <p className="text-[15px] text-olive mb-5">
@@ -29,11 +32,7 @@ export default async function TopupPage({
           {student.balance}
         </span>
       </p>
-      <TopupForm
-        studentId={student.id}
-        currentBalance={student.balance}
-        actorName={auth.user.full_name}
-      />
+      <AdjustForm studentId={student.id} currentBalance={student.balance} />
     </AppShell>
   );
 }
