@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
         ? sql`(select count(*)::int from students where deleted_at is null and enrolled_at >= ${from}::date and enrolled_at <= ${to}::date)`
         : sql`0::int`} as new_students_in_period,
       ${hasRange
-        ? sql`(select count(*)::int from students where status in (dropped,closed,archived) and updated_at::date >= ${from}::date and updated_at::date <= ${to}::date)`
+        ? sql`(select count(*)::int from students where status in ('dropped','closed','archived') and updated_at::date >= ${from}::date and updated_at::date <= ${to}::date)`
         : sql`0::int`} as left_students_in_period,
       ${hasRange
         ? sql`(select count(*)::int from lessons where deleted_at is null and status in ('conducted', 'penalty') and lesson_date >= ${from}::date and lesson_date <= ${to}::date)`
