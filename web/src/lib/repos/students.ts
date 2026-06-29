@@ -491,7 +491,7 @@ export async function assignTeacherToStudent(
       for (const slot of schedules) {
         await tx`
           insert into student_schedules (student_id, weekday, time_at, duration_min)
-          values (${studentId}, ${slot.weekday}, ${slot.time_at}, 60)
+          values (${studentId}, ${slot.weekday}, ${slot.time_at}, 30)
         `;
       }
     }
