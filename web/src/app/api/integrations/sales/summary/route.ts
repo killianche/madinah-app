@@ -10,6 +10,8 @@ interface SummaryRow {
   low_balance_count: number;
   new_students_in_period: number;
   left_students_in_period: number;
+  prepaid_lessons_total: number;
+  teacher_rate_conducted: number;
   conducted_lessons_in_period: number;
   topups_count_in_period: number;
   topups_lessons_in_period: number;
@@ -55,7 +57,9 @@ export async function GET(req: NextRequest) {
       ${hasRange
         ? sql`(select coalesce(sum(lessons_added), 0)::int from balance_topups where created_at::date >= ${from}::date and created_at::date <= ${to}::date and lessons_added > 0)`
         : sql`0::int`} as topups_lessons_in_period,
-      (select count(*)::int from teachers where status = 'active') as active_teachers
+      (select count(*)::int from teachers where status = 'active') as active_teachers,
+      (select coalesce(sum(balance),0)::int from students where deleted_at is null and status = 'active' and balance > 0) as prepaid_lessons_total,
+      (select coalesce(rate_conducted,0)::numeric::float8 from school_settings order by id limit 1) as teacher_rate_conducted
   `;
 
   // Список учителей с количеством проведённых уроков за период
