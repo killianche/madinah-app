@@ -27,6 +27,7 @@ import {
 } from "@/lib/types";
 import { TeacherBreakdown } from "./teacher-breakdown";
 import { ChangeTeacherDialog } from "./change-teacher-dialog";
+import { UnassignCuratorButton } from "./unassign-curator-button";
 import { ChangeStatusDialog } from "./change-status-dialog";
 import { LessonHistory, type LessonRow } from "./lesson-history";
 import { ScheduleEditClient } from "./schedule-edit-client";
@@ -414,6 +415,9 @@ export default async function StudentCard({
                 full_name: t.full_name,
               }))}
             />
+          )}
+          {canChangeTeacher && student.teacher_id && (
+            <UnassignCuratorButton studentId={student.id} />
           )}
           <Link
             href={`/teacher/student/${student.id}/edit`}
